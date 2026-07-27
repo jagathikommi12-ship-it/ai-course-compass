@@ -26,11 +26,12 @@ they use.
 See `docs/SETUP.md` for the full walkthrough: creating the Supabase
 project, running migrations, and starting all three services locally.
 
-## Using real course data
+## Course data
 
-The repo ships with a small mock CS dataset so everything runs end-to-end
-out of the box. See `docs/DATA_FORMAT.md` for how to swap in the real BS
-CS requirements and course catalog.
+The repo ships with the real UMass Amherst BS Computer Science degree
+requirements and course catalog (Fall 2026) already seeded — see
+`docs/DATA_FORMAT.md` for what's covered and how to extend it (new terms,
+corrections, additional majors/minors).
 
 ## Tests
 

@@ -34,7 +34,7 @@ export default function ChatWidget() {
       <div className="mb-3 flex-1 space-y-2 overflow-y-auto">
         {turns.length === 0 && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Try: "Does CS 345 count toward my Business minor?"
+            Try: "Does COMPSCI 590RM count as a CS elective?"
           </p>
         )}
         {turns.map((t, i) => (

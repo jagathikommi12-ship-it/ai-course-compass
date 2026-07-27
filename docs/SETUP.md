@@ -27,9 +27,10 @@ the Gradio chat app.
    tables + the auto-profile trigger).
 3. Paste and run `supabase/migrations/0002_rls_policies.sql` (locks down
    per-user data with Row Level Security — do not skip this step).
-4. Paste and run `supabase/seed/seed_courses.sql` to load the mock CS
-   dataset so the app has something to show. Swap this out with real data
-   later per `docs/DATA_FORMAT.md`.
+4. Paste and run `supabase/seed/seed_courses.sql` to load the real UMass
+   BS Computer Science requirements + course catalog. See
+   `docs/DATA_FORMAT.md` for what's in it and how to extend it (new terms,
+   corrections, other majors/minors).
 
 (If you'd rather use the Supabase CLI: `supabase link`, then
 `supabase db push` picks up everything in `supabase/migrations/`

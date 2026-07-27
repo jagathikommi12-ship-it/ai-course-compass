@@ -90,7 +90,7 @@ with gr.Blocks(title="Degree Requirement Navigator") as demo:
     with gr.Column(visible=False) as chat_col:
         gr.Markdown("## Ask the navigator")
         chatbot = gr.Chatbot(type="messages", height=450)
-        msg_box = gr.Textbox(label="Your question", placeholder="Does CS 345 count toward my Business minor?")
+        msg_box = gr.Textbox(label="Your question", placeholder="What do I still need for my CS Electives (400+)?")
         logout_btn = gr.Button("Log out")
 
     login_btn.click(

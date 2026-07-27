@@ -16,26 +16,29 @@ export default function RecommendationMode({ refreshKey }: { refreshKey: number 
   }, [refreshKey])
 
   return (
-    <div className="rounded border border-slate-200 p-4 dark:border-slate-700">
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
-        Recommendation mode — you're eligible for
-      </h2>
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {loading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Loading…</p>
-      ) : eligible.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Check off completed courses above to see what unlocks.
-        </p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          {eligible.map((c) => (
-            <li key={c.code} className="rounded bg-indigo-50 px-2 py-1 text-sm text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200">
-              <span className="font-medium">{c.code}</span> — {c.title}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="rounded-sm border border-line bg-surface">
+      <div className="border-b border-line px-4 py-3">
+        <h2 className="font-display text-[15px] font-bold text-ink">Recommendation mode — eligible now</h2>
+      </div>
+      <div className="p-4">
+        {error && <p className="text-sm text-maroon">{error}</p>}
+        {loading ? (
+          <p className="text-sm text-ink-faint">Loading…</p>
+        ) : eligible.length === 0 ? (
+          <p className="text-sm text-ink-faint">Check off completed courses above to see what unlocks.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {eligible.map((c) => (
+              <span
+                key={c.code}
+                className="rounded-full border border-line-strong px-2.5 py-1 text-xs text-ink-soft"
+              >
+                <span className="font-mono font-semibold text-ink">{c.code}</span> {c.title}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

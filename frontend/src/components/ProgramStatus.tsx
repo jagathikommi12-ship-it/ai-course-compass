@@ -20,47 +20,49 @@ export default function ProgramStatus() {
   }, [selected])
 
   return (
-    <div className="rounded border border-slate-200 p-4 dark:border-slate-700">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">What am I still missing?</h2>
+    <div className="rounded-sm border border-line bg-surface">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <h2 className="font-display text-[15px] font-bold text-ink">Requirement ledger</h2>
         <select
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
-          className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="rounded-sm border border-line-strong bg-surface px-2 py-1 text-sm text-ink"
         >
           {programs.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
       </div>
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="p-4 text-sm text-maroon">{error}</p>}
       {status && (
-        <div className="flex flex-col gap-3">
+        <div>
           {status.categories.map((cat) => (
-            <div key={cat.category_id} className="rounded border border-slate-100 p-2 dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-800 dark:text-slate-200">{cat.name}</span>
+            <div key={cat.category_id} className="border-b border-line px-4 py-2.5 last:border-b-0">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13.5px] font-semibold text-ink">{cat.name}</span>
                 {cat.satisfied ? (
-                  <span className="text-xs font-medium text-green-600 dark:text-green-400">Satisfied ✓</span>
+                  <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold whitespace-nowrap">
+                    satisfied
+                  </span>
                 ) : (
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Need {cat.still_needed} more
+                  <span className="rounded-full bg-maroon-soft px-2 py-0.5 text-[11px] font-semibold text-maroon whitespace-nowrap">
+                    {cat.still_needed} more
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Completed: {cat.completed_courses.length > 0 ? cat.completed_courses.join(', ') : 'none yet'}
+              <p className="mt-0.5 font-mono text-xs text-ink-faint">
+                {cat.completed_courses.length > 0 ? cat.completed_courses.join(', ') : 'none yet'}
               </p>
             </div>
           ))}
 
           {Object.keys(status.ambiguous_courses).length > 0 && (
-            <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
-              <p className="mb-1 font-semibold">⚠ Double-check these before assuming they count:</p>
-              <ul className="list-inside list-disc">
+            <div className="border-t border-line bg-paper px-4 py-3 text-xs text-ink-soft">
+              <p className="mb-1.5 font-semibold text-maroon">Double-check these before assuming they count:</p>
+              <ul className="flex flex-col gap-1">
                 {Object.entries(status.ambiguous_courses).map(([code, note]) => (
                   <li key={code}>
-                    <span className="font-medium">{code}</span>: {note}
+                    <span className="font-mono font-semibold text-ink">{code}</span>: {note}
                   </li>
                 ))}
               </ul>

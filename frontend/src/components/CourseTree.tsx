@@ -14,12 +14,12 @@ function TreeNode({
   const isDone = completed.has(node.code)
 
   return (
-    <div className="ml-4 border-l border-slate-200 pl-3 dark:border-slate-700">
+    <div className="ml-4 border-l border-line pl-3">
       <div className="flex items-center gap-2 py-1">
         {node.children.length > 0 && (
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="w-4 text-xs text-slate-500 dark:text-slate-400"
+            className="w-4 text-xs text-ink-faint"
             aria-label={expanded ? 'Collapse' : 'Expand'}
           >
             {expanded ? '▾' : '▸'}
@@ -29,16 +29,16 @@ function TreeNode({
           type="checkbox"
           checked={isDone}
           onChange={() => onToggleComplete(node.code)}
-          className="h-4 w-4"
+          className="h-4 w-4 accent-maroon"
         />
         <button
           onClick={() => setExpanded((v) => !v)}
-          className={`text-left text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-200'}`}
+          className={`text-left text-sm ${isDone ? 'text-ink-faint line-through' : 'text-ink'}`}
         >
-          <span className="font-medium">{node.code}</span> — {node.title}
+          <span className="font-mono font-semibold">{node.code}</span> — {node.title}
         </button>
         {!node.satisfied && !isDone && node.missing_options.length > 0 && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
+          <span className="text-xs text-maroon">
             needs {node.missing_options.map((g) => g.join(' + ')).join(' OR ')}
           </span>
         )}
@@ -77,43 +77,43 @@ export default function CourseTree({
   }
 
   return (
-    <div className="rounded border border-slate-200 p-4 dark:border-slate-700">
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
-        Course prerequisite explorer
-      </h2>
-      <div className="mb-3 flex gap-2">
+    <div className="rounded-sm border border-line bg-surface">
+      <div className="border-b border-line px-4 py-3">
+        <h2 className="font-display text-[15px] font-bold text-ink">Prerequisite explorer</h2>
+      </div>
+      <div className="flex gap-2 px-4 pt-3">
         <input
           value={courseCode}
           onChange={(e) => setCourseCode(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && lookup()}
-          placeholder="e.g. CS 311"
-          className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800"
+          placeholder="e.g. COMPSCI 311"
+          className="flex-1 rounded-sm border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-maroon focus:outline-none"
         />
         <button
           onClick={lookup}
           disabled={loading}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-sm bg-maroon px-3 py-1.5 text-sm font-medium text-[#fdf6f1] hover:bg-maroon-strong disabled:opacity-50"
         >
           {loading ? 'Loading…' : 'Look up'}
         </button>
       </div>
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="px-4 pt-3 text-sm text-maroon">{error}</p>}
       {tree && (
-        <div>
+        <div className="p-4">
           <div className="flex items-center gap-2 py-1">
             <input
               type="checkbox"
               checked={completed.has(tree.code)}
               onChange={() => onToggleComplete(tree.code)}
-              className="h-4 w-4"
+              className="h-4 w-4 accent-maroon"
             />
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {tree.code} — {tree.title}
+            <span className="text-ink">
+              <span className="font-mono font-semibold">{tree.code}</span> — {tree.title}
             </span>
             {tree.satisfied ? (
-              <span className="text-xs font-medium text-green-600 dark:text-green-400">Prereqs met ✓</span>
+              <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold">met</span>
             ) : (
-              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Prereqs not yet met</span>
+              <span className="rounded-full bg-maroon-soft px-2 py-0.5 text-[11px] font-semibold text-maroon">not yet met</span>
             )}
           </div>
           {tree.children.map((child) => (

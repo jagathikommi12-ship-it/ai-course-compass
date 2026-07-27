@@ -31,23 +31,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">AI Course Compass</h1>
-        <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+    <div className="min-h-screen bg-paper">
+      <div className="flex flex-wrap items-baseline justify-between gap-4 border-b border-line bg-surface px-7 py-4">
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-display text-xl font-bold text-ink">AI Course Compass</span>
+          <span className="border-l border-line-strong pl-2.5 text-[13px] text-ink-soft">BS Computer Science</span>
+        </div>
+        <div className="flex items-center gap-3 text-sm text-ink-soft">
           <span>{session?.user.email}</span>
-          <button onClick={signOut} className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600">
+          <button
+            onClick={signOut}
+            className="rounded-sm border border-line-strong px-2 py-1 hover:border-maroon hover:text-maroon"
+          >
             Log out
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:col-span-2">
+
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-7 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex flex-col gap-5">
           <ProgramStatus key={`status-${refreshKey}`} />
           <CourseTree completed={completed} onToggleComplete={onToggleComplete} />
           <RecommendationMode refreshKey={refreshKey} />
         </div>
-        <div className="lg:col-span-1">
+        <div>
           <ChatWidget />
         </div>
       </div>

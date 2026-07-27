@@ -29,39 +29,41 @@ export default function ChatWidget() {
   }
 
   return (
-    <div className="flex h-full flex-col rounded border border-slate-200 p-4 dark:border-slate-700">
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Ask the navigator</h2>
-      <div className="mb-3 flex-1 space-y-2 overflow-y-auto">
+    <div className="flex h-full flex-col rounded-sm border border-line bg-surface">
+      <div className="border-b border-line px-4 py-3">
+        <h2 className="font-display text-[15px] font-bold text-ink">Ask the navigator</h2>
+      </div>
+      <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
         {turns.length === 0 && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-ink-faint">
             Try: "Does COMPSCI 590RM count as a CS elective?"
           </p>
         )}
         {turns.map((t, i) => (
           <div
             key={i}
-            className={`rounded px-3 py-2 text-sm ${
+            className={`max-w-[92%] rounded-sm px-3 py-2 text-sm ${
               t.role === 'user'
-                ? 'ml-8 bg-indigo-600 text-white'
-                : 'mr-8 bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
+                ? 'ml-auto bg-maroon text-[#fdf6f1]'
+                : 'border border-line bg-paper text-ink'
             }`}
           >
             {t.text}
           </div>
         ))}
-        {sending && <p className="text-sm text-slate-400">Thinking…</p>}
+        {sending && <p className="text-sm text-ink-faint">Thinking…</p>}
       </div>
-      <form onSubmit={onSubmit} className="flex gap-2">
+      <form onSubmit={onSubmit} className="flex gap-2 border-t border-line p-3">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask a question…"
-          className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800"
+          className="flex-1 rounded-sm border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:border-maroon focus:outline-none"
         />
         <button
           type="submit"
           disabled={sending}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-sm bg-maroon px-3 py-1.5 text-sm font-medium text-[#fdf6f1] hover:bg-maroon-strong disabled:opacity-50"
         >
           Send
         </button>

@@ -7,7 +7,7 @@ import Dashboard from './pages/Dashboard'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
-  if (loading) return <div className="p-8 text-center text-slate-500">Loading…</div>
+  if (loading) return <div className="bg-paper p-8 text-center text-ink-faint">Loading…</div>
   if (!session) return <Navigate to="/login" replace />
   return <>{children}</>
 }

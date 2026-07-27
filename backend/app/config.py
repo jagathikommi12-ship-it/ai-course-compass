@@ -15,7 +15,11 @@ class Settings(BaseSettings):
 
     supabase_url: str
     supabase_service_role_key: str
-    supabase_jwt_secret: str  # used to verify user JWTs locally (no network round trip)
+    # Only needed for projects still on Supabase's legacy shared HS256 secret.
+    # Projects on the newer JWT Signing Keys system need nothing here at all —
+    # verification fetches the public key from the project's own JWKS endpoint
+    # instead (see app/auth.py).
+    supabase_jwt_secret: str | None = None
 
     anthropic_api_key: str
     anthropic_model: str = "claude-sonnet-5"

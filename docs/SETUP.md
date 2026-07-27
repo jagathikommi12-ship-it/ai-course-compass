@@ -13,12 +13,15 @@ the Gradio chat app.
 3. In the left sidebar go to **Project Settings > API**. You'll need three
    values from this page throughout setup:
    - **Project URL** (e.g. `https://abcd1234.supabase.co`)
-   - **anon public** key
-   - **service_role** key (click "Reveal" — treat this like a password,
-     never share it or put it in frontend code)
-4. Still in Project Settings > API, scroll to **JWT Settings** and copy the
-   **JWT Secret** — the backend uses this to verify login tokens without a
-   network round trip.
+   - **anon public** / **publishable** key
+   - **service_role** / **secret** key (click "Reveal" — treat this like a
+     password, never share it or put it in frontend code)
+4. That's it for auth setup — new projects use Supabase's JWT Signing Keys
+   system, so the backend verifies login tokens against the project's public
+   JWKS endpoint (derived automatically from the Project URL) rather than a
+   shared secret. If your project is still on the older shared-secret system
+   instead, Project Settings > API > JWT Settings will show a **JWT Secret**
+   you should put in `SUPABASE_JWT_SECRET` — leave it blank otherwise.
 
 ## 2. Run the database migrations
 
@@ -111,8 +114,9 @@ shared, since both apps hit the same backend and database.
   a browser precisely because RLS constrains what it can do.
 - **The backend never trusts a user_id from the request.** Every
   per-user endpoint depends on `get_current_user` (`backend/app/auth.py`),
-  which verifies the Supabase JWT's signature locally against
-  `SUPABASE_JWT_SECRET` and reads `user_id` out of the verified token —
+  which cryptographically verifies the Supabase JWT's signature (via the
+  project's public JWKS endpoint, or `SUPABASE_JWT_SECRET` for
+  legacy-secret projects) and reads `user_id` out of the verified token —
   never out of a request body or query param.
 - **The LLM can't fabricate whether a requirement is satisfied.** The
   Claude agent's tools (`backend/app/agent/tools.py`) call the same

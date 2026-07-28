@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { api, ApiError, type DegreeProgram, type Plan, type ProgramChecklist } from '../lib/api'
 
 function CreditsTracker({ plan }: { plan: Plan | null }) {
@@ -23,6 +25,47 @@ function CreditsTracker({ plan }: { plan: Plan | null }) {
         <span><span className="inline-block h-2 w-2 rounded-full bg-maroon" /> locked</span>
         <span><span className="inline-block h-2 w-2 rounded-full bg-gold" /> scheduled, not locked</span>
       </div>
+    </div>
+  )
+}
+
+function DraggableCourseRow({
+  code,
+  termId,
+  status,
+  locked,
+  children,
+}: {
+  code: string
+  termId: string | null
+  status: string
+  locked: boolean
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `chk:${code}`,
+    data: { code, termId, status, locked },
+    disabled: locked,
+  })
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform), zIndex: 20, position: 'relative' as const }
+    : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex flex-wrap items-center gap-2.5 border-t border-line px-4 py-2 first:border-t-0 ${isDragging ? 'opacity-50' : ''}`}
+    >
+      <span
+        {...(locked ? {} : listeners)}
+        {...attributes}
+        className={`select-none text-ink-faint ${locked ? 'opacity-30' : 'cursor-grab active:cursor-grabbing'}`}
+        title={locked ? 'Unlock to drag' : 'Drag onto the calendar'}
+      >
+        ⠿
+      </span>
+      {children}
     </div>
   )
 }
@@ -150,9 +193,12 @@ export default function ChecklistPanel() {
                 const isPlanned = course.status === 'planned'
                 const busy = pending.has(course.code)
                 return (
-                  <div
+                  <DraggableCourseRow
                     key={course.code}
-                    className="flex flex-wrap items-center gap-2.5 border-t border-line px-4 py-2 first:border-t-0"
+                    code={course.code}
+                    termId={termIdByCode[course.code] ?? null}
+                    status={course.status}
+                    locked={course.locked}
                   >
                     <input
                       type="checkbox"
@@ -184,7 +230,7 @@ export default function ChecklistPanel() {
                     >
                       {course.locked ? 'locked' : 'lock'}
                     </button>
-                  </div>
+                  </DraggableCourseRow>
                 )
               })}
             </div>

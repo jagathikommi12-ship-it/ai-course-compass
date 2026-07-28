@@ -40,13 +40,22 @@ class ProgramStatusOut(BaseModel):
     ambiguous_courses: dict[str, str]
 
 
+class PrereqRefOut(BaseModel):
+    code: str
+    satisfied: bool  # has the user already completed this specific prereq course
+
+
 class ChecklistCourseOut(BaseModel):
     code: str
     title: str
     credits: float
     satisfies_note: str = ""
+    ambiguous_note: str = ""  # cross-listing/notes worth double-checking before assuming this counts
     status: str  # 'not_started' | 'planned' | 'completed'
     locked: bool
+    mandatory: bool  # required course vs. one option among an elective/choice category
+    prereqs_met: bool
+    prereq_groups: list[list[PrereqRefOut]] = []  # AND within a group, OR across groups
 
 
 class ChecklistCategoryOut(BaseModel):

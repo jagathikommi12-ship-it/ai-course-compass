@@ -55,6 +55,11 @@ def _prereq_groups(course_code: str, edges: list[PrereqEdge]) -> list[list[str]]
     return list(groups.values())
 
 
+def prereq_groups_for(course_code: str, edges: list[PrereqEdge]) -> list[list[str]]:
+    """Public accessor: this course's prereq groups (AND within a group, OR across groups)."""
+    return _prereq_groups(course_code, edges)
+
+
 def prereqs_satisfied(course_code: str, completed: set[str], edges: list[PrereqEdge]) -> bool:
     groups = _prereq_groups(course_code, edges)
     if not groups:

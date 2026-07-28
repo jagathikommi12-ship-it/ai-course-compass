@@ -11,7 +11,6 @@ export default function PlanSetup({ onChanged }: { onChanged?: () => void }) {
   const [saving, setSaving] = useState(false)
 
   const [newTermType, setNewTermType] = useState<'summer' | 'winter'>('summer')
-  const [newTermLabel, setNewTermLabel] = useState('')
   const [afterPosition, setAfterPosition] = useState<number | ''>('')
 
   const load = () => {
@@ -51,11 +50,14 @@ export default function PlanSetup({ onChanged }: { onChanged?: () => void }) {
   }
 
   const addTerm = async () => {
-    if (afterPosition === '' || !newTermLabel.trim()) return
+    if (afterPosition === '') return
     setError(null)
     try {
-      await api.addTerm(newTermType, newTermLabel.trim(), afterPosition)
-      setNewTermLabel('')
+      const afterTerm = terms.find((t) => t.position === afterPosition)
+      const yearMatch = afterTerm?.label.match(/Year \d+/)
+      const anchor = yearMatch ? yearMatch[0] : afterTerm?.label ?? ''
+      const label = `${newTermType === 'summer' ? 'Summer' : 'Winter'} after ${anchor}`
+      await api.addTerm(newTermType, label, afterPosition)
       load()
       onChanged?.()
     } catch (e) {
@@ -168,24 +170,25 @@ export default function PlanSetup({ onChanged }: { onChanged?: () => void }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
-            <select
-              value={newTermType}
-              onChange={(e) => setNewTermType(e.target.value as 'summer' | 'winter')}
-              className="rounded-sm border border-line-strong bg-surface px-2 py-1 text-sm text-ink"
-            >
-              <option value="summer">Summer</option>
-              <option value="winter">Winter</option>
-            </select>
-            <input
-              value={newTermLabel}
-              onChange={(e) => setNewTermLabel(e.target.value)}
-              placeholder="e.g. Summer after Year 1"
-              className="min-w-0 flex-1 rounded-sm border border-line-strong bg-surface px-2 py-1 text-sm text-ink placeholder:text-ink-faint focus:border-maroon focus:outline-none"
-            />
+            <div className="flex gap-1.5">
+              {(['summer', 'winter'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setNewTermType(t)}
+                  className={`rounded-sm border px-3 py-1.5 text-sm font-medium capitalize ${
+                    newTermType === t
+                      ? 'border-maroon bg-maroon-soft text-maroon'
+                      : 'border-line-strong text-ink-soft hover:border-maroon hover:text-maroon'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
             <select
               value={afterPosition}
               onChange={(e) => setAfterPosition(e.target.value === '' ? '' : Number(e.target.value))}
-              className="rounded-sm border border-line-strong bg-surface px-2 py-1 text-sm text-ink"
+              className="min-w-0 flex-1 rounded-sm border border-line-strong bg-surface px-2 py-1 text-sm text-ink"
             >
               <option value="">after…</option>
               {terms.map((t) => (
@@ -194,7 +197,8 @@ export default function PlanSetup({ onChanged }: { onChanged?: () => void }) {
             </select>
             <button
               onClick={addTerm}
-              className="rounded-sm border border-line-strong px-3 py-1.5 text-sm text-ink-soft hover:border-maroon hover:text-maroon"
+              disabled={afterPosition === ''}
+              className="rounded-sm border border-line-strong px-3 py-1.5 text-sm text-ink-soft hover:border-maroon hover:text-maroon disabled:opacity-50"
             >
               Add term
             </button>

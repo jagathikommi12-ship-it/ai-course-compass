@@ -3,10 +3,9 @@ import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from 
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import CourseTree from '../components/CourseTree'
-import ProgramStatus from '../components/ProgramStatus'
 import RecommendationMode from '../components/RecommendationMode'
 import ChatWidget from '../components/ChatWidget'
-import ChecklistPanel from '../components/ChecklistPanel'
+import CourseChecklist from '../components/CourseChecklist'
 import PlanSetup from '../components/PlanSetup'
 import SemesterCalendar from '../components/SemesterCalendar'
 
@@ -102,14 +101,16 @@ export default function Dashboard() {
 
         <div className="mx-auto max-w-6xl px-7 py-6">
           <div className="mb-5">
-            <SemesterCalendar key={`calendar-${refreshKey}`} />
+            <SemesterCalendar key={`calendar-${refreshKey}`} onChanged={() => setRefreshKey((k) => k + 1)} />
+          </div>
+
+          <div className="mb-5">
+            <CourseChecklist key={`checklist-${refreshKey}`} />
           </div>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className="flex flex-col gap-5">
               <PlanSetup onChanged={() => setRefreshKey((k) => k + 1)} />
-              <ChecklistPanel key={`checklist-${refreshKey}`} />
-              <ProgramStatus key={`status-${refreshKey}`} />
               <CourseTree completed={completed} onToggleComplete={onToggleComplete} />
               <RecommendationMode refreshKey={refreshKey} />
             </div>

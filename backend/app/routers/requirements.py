@@ -5,6 +5,7 @@ from app.models import (
     CategoryStatusOut,
     ChecklistCategoryOut,
     ChecklistCourseOut,
+    PrereqRefOut,
     ProgramChecklistOut,
     ProgramStatusOut,
 )
@@ -13,6 +14,8 @@ from app.services.requirement_engine import (
     category_status,
     find_double_counted_courses,
     flag_ambiguous_courses,
+    prereq_groups_for,
+    prereqs_satisfied,
 )
 
 router = APIRouter(prefix="/programs", tags=["requirements"])
@@ -95,8 +98,11 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
     category_ids = [c.id for c in categories]
     links = catalog_repo.fetch_requirement_links(category_ids=category_ids)
     courses_by_code = {c.code: c for c in catalog_repo.fetch_courses()}
+    edges = catalog_repo.fetch_prereq_edges()
+    ambiguous_notes = flag_ambiguous_courses(list(courses_by_code.values()))
 
     planned_by_code = {row["course_code"]: row for row in catalog_repo.fetch_planned_courses(user.user_id)}
+    completed_codes = {code for code, row in planned_by_code.items() if row["status"] == "completed"}
 
     links_by_category: dict[str, list] = {}
     for link in links:
@@ -108,12 +114,15 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
 
     for cat in categories:
         cat_links = links_by_category.get(cat.id, [])
+        valid_links = [link for link in cat_links if link.course_code in courses_by_code]
+        # If the category requires literally every listed course, each one is mandatory;
+        # otherwise it's a "pick some subset" category and every course in it is a choice.
+        mandatory = cat.min_courses is not None and cat.min_courses >= len(valid_links)
+
         courses_out = []
         completed_count = 0
-        for link in cat_links:
-            course = courses_by_code.get(link.course_code)
-            if course is None:
-                continue
+        for link in valid_links:
+            course = courses_by_code[link.course_code]
             plan_row = planned_by_code.get(link.course_code)
             status = plan_row["status"] if plan_row else "not_started"
             locked = plan_row["locked"] if plan_row else False
@@ -121,14 +130,25 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
                 completed_count += 1
                 all_completed_seen.add(link.course_code)
             all_codes_seen.add(link.course_code)
+
+            groups = prereq_groups_for(link.course_code, edges)
+            prereq_groups_out = [
+                [PrereqRefOut(code=prereq_code, satisfied=prereq_code in completed_codes) for prereq_code in group]
+                for group in groups
+            ]
+
             courses_out.append(
                 ChecklistCourseOut(
                     code=course.code,
                     title=course.title,
                     credits=course.credits,
                     satisfies_note=link.satisfies_note,
+                    ambiguous_note=ambiguous_notes.get(course.code, ""),
                     status=status,
                     locked=locked,
+                    mandatory=mandatory,
+                    prereqs_met=prereqs_satisfied(link.course_code, completed_codes, edges),
+                    prereq_groups=prereq_groups_out,
                 )
             )
         checklist_categories.append(

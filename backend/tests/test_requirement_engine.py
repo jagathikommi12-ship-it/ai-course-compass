@@ -13,6 +13,7 @@ from app.services.requirement_engine import (
     generate_regular_terms,
     missing_prereq_options,
     missing_prereqs_for_term,
+    prereq_groups_for,
     prereqs_satisfied,
     prereqs_satisfied_for_term,
 )
@@ -54,6 +55,13 @@ def test_missing_prereq_options_reports_all_groups():
 
 def test_missing_prereq_options_empty_when_unlocked():
     assert missing_prereq_options("CS 311", {"CS 220"}, EDGES) == []
+
+
+def test_prereq_groups_for_returns_and_or_structure():
+    groups = prereq_groups_for("CS 311", EDGES)
+    assert ["CS 230", "CS 250"] in groups
+    assert ["CS 220"] in groups
+    assert prereq_groups_for("CS 121", EDGES) == []
 
 
 def test_eligible_next_courses_recommendation_mode():

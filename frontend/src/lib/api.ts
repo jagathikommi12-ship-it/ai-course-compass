@@ -83,13 +83,22 @@ export interface DegreeProgram {
 
 export type CourseStatus = 'not_started' | 'planned' | 'completed'
 
+export interface PrereqRef {
+  code: string
+  satisfied: boolean
+}
+
 export interface ChecklistCourse {
   code: string
   title: string
   credits: number
   satisfies_note: string
+  ambiguous_note: string
   status: CourseStatus
   locked: boolean
+  mandatory: boolean
+  prereqs_met: boolean
+  prereq_groups: PrereqRef[][]
 }
 
 export interface ChecklistCategory {

@@ -9,6 +9,16 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` }
 }
 
+export class ApiError extends Error {
+  status: number
+  body: unknown
+  constructor(status: number, statusText: string, body: unknown) {
+    super(`${status} ${statusText}`)
+    this.status = status
+    this.body = body
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders()
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -16,8 +26,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...headers, ...(init?.headers ?? {}) },
   })
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`${res.status} ${res.statusText}: ${body}`)
+    let body: unknown = await res.text()
+    try {
+      body = JSON.parse(body as string)
+    } catch {
+      // leave as text
+    }
+    throw new ApiError(res.status, res.statusText, body)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -66,11 +81,82 @@ export interface DegreeProgram {
   description: string
 }
 
+export type CourseStatus = 'not_started' | 'planned' | 'completed'
+
+export interface ChecklistCourse {
+  code: string
+  title: string
+  credits: number
+  satisfies_note: string
+  status: CourseStatus
+  locked: boolean
+}
+
+export interface ChecklistCategory {
+  category_id: string
+  name: string
+  description: string
+  required_courses: number | null
+  required_credits: number | null
+  courses: ChecklistCourse[]
+  completed_count: number
+  total_count: number
+}
+
+export interface ProgramChecklist {
+  program_id: string
+  program_name: string
+  categories: ChecklistCategory[]
+  total_completed: number
+  total_courses: number
+}
+
+export interface PlanSettings {
+  incoming_credits: number
+  target_semesters: number
+}
+
+export interface Term {
+  id: string
+  term_type: 'fall' | 'spring' | 'summer' | 'winter'
+  label: string
+  position: number
+}
+
+export interface PlannedCourse {
+  course_code: string
+  title: string
+  credits: number
+  term_id: string | null
+  status: 'planned' | 'completed'
+  locked: boolean
+}
+
+export interface CreditsSummary {
+  total_required: number
+  scheduled_credits: number
+  locked_credits: number
+  remaining_credits: number
+}
+
+export interface Plan {
+  settings: PlanSettings | null
+  terms: Term[]
+  planned_courses: PlannedCourse[]
+  credits_summary: CreditsSummary
+}
+
+export interface PrereqViolation {
+  message: string
+  missing_options: string[][]
+}
+
 export const api = {
   listCourses: () => request<Course[]>('/courses'),
   getPrereqTree: (code: string) => request<PrereqNode>(`/courses/${encodeURIComponent(code)}/prereq-tree`),
   listPrograms: () => request<DegreeProgram[]>('/programs'),
   getProgramStatus: (programId: string) => request<ProgramStatus>(`/programs/${programId}/status`),
+  getProgramChecklist: (programId: string) => request<ProgramChecklist>(`/programs/${programId}/checklist`),
   getCompleted: () => request<string[]>('/me/completed'),
   markCompleted: (course_code: string) =>
     request<void>('/me/completed', { method: 'POST', body: JSON.stringify({ course_code }) }),
@@ -79,4 +165,18 @@ export const api = {
   getRecommendations: () => request<{ eligible_courses: Course[] }>('/me/recommendations'),
   chat: (message: string) =>
     request<{ reply: string }>('/agent/chat', { method: 'POST', body: JSON.stringify({ message }) }),
+
+  getPlan: (programId?: string) => request<Plan>(`/me/plan${programId ? `?program_id=${programId}` : ''}`),
+  updatePlanSettings: (settings: PlanSettings) =>
+    request<Term[]>('/me/plan/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+  addTerm: (term_type: 'summer' | 'winter', label: string, after_position: number) =>
+    request<Term>('/me/plan/terms', {
+      method: 'POST',
+      body: JSON.stringify({ term_type, label, after_position }),
+    }),
+  removeTerm: (termId: string) => request<void>(`/me/plan/terms/${termId}`, { method: 'DELETE' }),
+  upsertPlanCourse: (body: { course_code: string; term_id?: string | null; status?: string; locked?: boolean }) =>
+    request<PlannedCourse>('/me/plan/courses', { method: 'POST', body: JSON.stringify(body) }),
+  removePlanCourse: (course_code: string) =>
+    request<void>(`/me/plan/courses/${encodeURIComponent(course_code)}`, { method: 'DELETE' }),
 }

@@ -5,6 +5,7 @@ import CourseTree from '../components/CourseTree'
 import ProgramStatus from '../components/ProgramStatus'
 import RecommendationMode from '../components/RecommendationMode'
 import ChatWidget from '../components/ChatWidget'
+import ChecklistPanel from '../components/ChecklistPanel'
 
 export default function Dashboard() {
   const { session, signOut } = useAuth()
@@ -50,6 +51,7 @@ export default function Dashboard() {
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-7 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-5">
+          <ChecklistPanel key={`checklist-${refreshKey}`} />
           <ProgramStatus key={`status-${refreshKey}`} />
           <CourseTree completed={completed} onToggleComplete={onToggleComplete} />
           <RecommendationMode refreshKey={refreshKey} />

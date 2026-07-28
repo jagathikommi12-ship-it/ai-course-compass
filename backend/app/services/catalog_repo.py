@@ -64,6 +64,8 @@ def fetch_categories(program_id: str | None = None) -> list[RequirementCategory]
             name=row["name"],
             min_courses=row.get("min_courses"),
             min_credits=row.get("min_credits"),
+            sort_order=row.get("sort_order", 0),
+            description=row.get("description", ""),
         )
         for row in rows
     ]

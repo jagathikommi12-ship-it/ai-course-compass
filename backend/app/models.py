@@ -40,6 +40,34 @@ class ProgramStatusOut(BaseModel):
     ambiguous_courses: dict[str, str]
 
 
+class ChecklistCourseOut(BaseModel):
+    code: str
+    title: str
+    credits: float
+    satisfies_note: str = ""
+    status: str  # 'not_started' | 'planned' | 'completed'
+    locked: bool
+
+
+class ChecklistCategoryOut(BaseModel):
+    category_id: str
+    name: str
+    description: str = ""
+    required_courses: int | None
+    required_credits: float | None
+    courses: list[ChecklistCourseOut]
+    completed_count: int
+    total_count: int
+
+
+class ProgramChecklistOut(BaseModel):
+    program_id: str
+    program_name: str
+    categories: list[ChecklistCategoryOut]
+    total_completed: int
+    total_courses: int
+
+
 class CompletedCourseIn(BaseModel):
     course_code: str
     term: str | None = None

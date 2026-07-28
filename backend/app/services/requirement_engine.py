@@ -35,6 +35,8 @@ class RequirementCategory:
     name: str
     min_courses: int | None = None
     min_credits: float | None = None
+    sort_order: int = 0
+    description: str = ""
 
 
 @dataclass(frozen=True)

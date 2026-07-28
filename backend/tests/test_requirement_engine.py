@@ -1,14 +1,20 @@
 from app.services.requirement_engine import (
     Course,
+    PlannedCourse,
     PrereqEdge,
     RequirementCategory,
     RequirementCourseLink,
     category_status,
+    compute_credits_summary,
     eligible_next_courses,
     find_double_counted_courses,
     flag_ambiguous_courses,
+    format_missing_prereq_message,
+    generate_regular_terms,
     missing_prereq_options,
+    missing_prereqs_for_term,
     prereqs_satisfied,
+    prereqs_satisfied_for_term,
 )
 
 EDGES = [
@@ -113,3 +119,73 @@ def test_flag_ambiguous_courses():
     assert "CS 240" in flagged and "STAT 240" in flagged["CS 240"]
     assert "CS 121" not in flagged
     assert "Only counts" in flagged["CS 345"]
+
+
+def test_compute_credits_summary():
+    courses_by_code = {
+        "CS 121": Course("CS 121", "x", credits=4),
+        "CS 187": Course("CS 187", "y", credits=4),
+        "CS 230": Course("CS 230", "z", credits=3),
+        "CS 311": Course("CS 311", "w", credits=3),
+    }
+    planned = [
+        PlannedCourse("CS 121", term_position=0, status="completed", locked=True),
+        PlannedCourse("CS 187", term_position=0, status="completed", locked=True),
+        PlannedCourse("CS 230", term_position=1, status="planned", locked=False),
+        PlannedCourse("CS 311", term_position=None, status="planned", locked=False),  # unscheduled backlog item
+    ]
+    summary = compute_credits_summary(120, planned, courses_by_code)
+    assert summary.scheduled_credits == 11  # everything with a term_position (121+187+230)
+    assert summary.locked_credits == 8  # only the two locked/completed courses
+    assert summary.remaining_credits == 112  # 120 - 8
+
+
+def test_compute_credits_summary_floors_remaining_at_zero():
+    courses_by_code = {"CS 121": Course("CS 121", "x", credits=4)}
+    planned = [PlannedCourse("CS 121", term_position=0, status="completed", locked=True)]
+    summary = compute_credits_summary(2, planned, courses_by_code)  # already exceeds a tiny requirement
+    assert summary.remaining_credits == 0
+
+
+def test_prereqs_satisfied_for_term_requires_strictly_earlier_term():
+    edges = [PrereqEdge("CS 230", "CS 187", 0)]
+    planned_same_term = [
+        PlannedCourse("CS 187", term_position=2, status="planned", locked=False),
+    ]
+    # CS 187 scheduled in the SAME term as CS 230 (position 2) doesn't satisfy it
+    assert prereqs_satisfied_for_term("CS 230", 2, planned_same_term, edges) is False
+
+    planned_earlier = [
+        PlannedCourse("CS 187", term_position=1, status="planned", locked=False),
+    ]
+    assert prereqs_satisfied_for_term("CS 230", 2, planned_earlier, edges) is True
+
+
+def test_missing_prereqs_for_term_names_the_missing_course():
+    edges = [PrereqEdge("CS 210", "CS 160", 0)]
+    missing = missing_prereqs_for_term("CS 210", 1, [], edges)
+    assert missing == [["CS 160"]]
+
+
+def test_format_missing_prereq_message_single_path():
+    msg = format_missing_prereq_message("CICS 210", [["CICS 160"]])
+    assert msg == "You need to take CICS 160 in an earlier term before CICS 210."
+
+
+def test_format_missing_prereq_message_and_group():
+    msg = format_missing_prereq_message("COMPSCI 230", [["CICS 210", "COMPSCI 198C"]])
+    assert "CICS 210 and COMPSCI 198C" in msg
+
+
+def test_format_missing_prereq_message_or_of_and_groups():
+    msg = format_missing_prereq_message("COMPSCI 311", [["CICS 210", "COMPSCI 250"], ["CICS 210", "MATH 455"]])
+    assert "(CICS 210 and COMPSCI 250) or (CICS 210 and MATH 455)" in msg
+
+
+def test_generate_regular_terms_alternates_fall_spring_by_year():
+    terms = generate_regular_terms(6)
+    assert [t["term_type"] for t in terms] == ["fall", "spring", "fall", "spring", "fall", "spring"]
+    assert [t["position"] for t in terms] == [0, 1, 2, 3, 4, 5]
+    assert terms[0]["label"] == "Year 1 - Fall"
+    assert terms[2]["label"] == "Year 2 - Fall"
+    assert terms[5]["label"] == "Year 3 - Spring"

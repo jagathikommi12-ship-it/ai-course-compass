@@ -56,3 +56,61 @@ class ChatMessageIn(BaseModel):
 
 class ChatMessageOut(BaseModel):
     reply: str
+
+
+# ---------------------------------------------------------------------------
+# Semester planner
+# ---------------------------------------------------------------------------
+
+
+class PlanSettingsOut(BaseModel):
+    incoming_credits: float
+    target_semesters: int
+
+
+class PlanSettingsIn(BaseModel):
+    incoming_credits: float = 0
+    target_semesters: int
+
+
+class TermOut(BaseModel):
+    id: str
+    term_type: str
+    label: str
+    position: int
+
+
+class AddTermIn(BaseModel):
+    term_type: str  # 'summer' | 'winter' (regular fall/spring terms come from plan settings generation)
+    label: str
+    after_position: int  # new term is inserted immediately after this position
+
+
+class PlannedCourseOut(BaseModel):
+    course_code: str
+    title: str
+    credits: float
+    term_id: str | None
+    status: str
+    locked: bool
+
+
+class PlanCourseIn(BaseModel):
+    course_code: str
+    term_id: str | None = None
+    status: str = "planned"
+    locked: bool = False
+
+
+class CreditsSummaryOut(BaseModel):
+    total_required: float
+    scheduled_credits: float
+    locked_credits: float
+    remaining_credits: float
+
+
+class PlanOut(BaseModel):
+    settings: PlanSettingsOut | None
+    terms: list[TermOut]
+    planned_courses: list[PlannedCourseOut]
+    credits_summary: CreditsSummaryOut

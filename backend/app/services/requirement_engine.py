@@ -155,3 +155,113 @@ def flag_ambiguous_courses(courses: list[Course]) -> dict[str, str]:
                 parts.append(course.notes)
             flagged[course.code] = " ".join(parts)
     return flagged
+
+
+# ---------------------------------------------------------------------------
+# Semester planner: credits tracking + term-aware prerequisite checking
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PlannedCourse:
+    course_code: str
+    term_position: int | None  # None = unscheduled (checked off or backlog); otherwise the term's sequence position
+    status: str  # 'planned' | 'completed'
+    locked: bool  # done, or certain (currently enrolled) — can't be casually dragged/removed
+
+
+@dataclass(frozen=True)
+class CreditsSummary:
+    total_required: float
+    scheduled_credits: float  # sum of credits for every course placed in some term
+    locked_credits: float  # sum of credits for locked (done/certain) courses
+    remaining_credits: float  # max(0, total_required - locked_credits)
+
+
+def compute_credits_summary(
+    total_required: float,
+    planned: list[PlannedCourse],
+    courses_by_code: dict[str, Course],
+) -> CreditsSummary:
+    scheduled = sum(
+        courses_by_code[p.course_code].credits
+        for p in planned
+        if p.term_position is not None and p.course_code in courses_by_code
+    )
+    locked = sum(
+        courses_by_code[p.course_code].credits
+        for p in planned
+        if p.locked and p.course_code in courses_by_code
+    )
+    remaining = max(0.0, total_required - locked)
+    return CreditsSummary(
+        total_required=total_required,
+        scheduled_credits=scheduled,
+        locked_credits=locked,
+        remaining_credits=remaining,
+    )
+
+
+def _codes_in_earlier_terms(target_position: int, planned: list[PlannedCourse]) -> set[str]:
+    return {
+        p.course_code
+        for p in planned
+        if p.term_position is not None and p.term_position < target_position
+    }
+
+
+def prereqs_satisfied_for_term(
+    course_code: str,
+    target_position: int,
+    planned: list[PlannedCourse],
+    edges: list[PrereqEdge],
+) -> bool:
+    """
+    A course can be scheduled into a term if its prerequisites are all
+    scheduled into STRICTLY EARLIER terms in the same plan (being scheduled
+    for the future is enough for planning purposes — it doesn't need to
+    already be marked 'completed').
+    """
+    return prereqs_satisfied(course_code, _codes_in_earlier_terms(target_position, planned), edges)
+
+
+def missing_prereqs_for_term(
+    course_code: str,
+    target_position: int,
+    planned: list[PlannedCourse],
+    edges: list[PrereqEdge],
+) -> list[list[str]]:
+    """Same shape as missing_prereq_options: empty if satisfied, else the still-missing AND-groups."""
+    return missing_prereq_options(course_code, _codes_in_earlier_terms(target_position, planned), edges)
+
+
+def format_missing_prereq_message(course_code: str, missing_options: list[list[str]]) -> str:
+    """Turns [["CICS 160"]] into a plain-English popup message naming exactly what's missing."""
+    if not missing_options:
+        return f"{course_code} has no unmet prerequisites."
+    paths = [" and ".join(group) for group in missing_options]
+    if len(paths) == 1:
+        return f"You need to take {paths[0]} in an earlier term before {course_code}."
+    return f"You need to take ({') or ('.join(paths)}) in an earlier term before {course_code}."
+
+
+def generate_regular_terms(target_semesters: int, start_type: str = "fall") -> list[dict]:
+    """
+    Builds the initial alternating Fall/Spring term sequence for a fresh plan,
+    e.g. target_semesters=8 -> Year 1 Fall, Year 1 Spring, Year 2 Fall, ...
+    Positions are dense (0..N-1); summer/winter terms are inserted later by
+    shifting positions, so they don't need to be reserved for up front.
+    """
+    types = ["fall", "spring"] if start_type == "fall" else ["spring", "fall"]
+    terms = []
+    for i in range(target_semesters):
+        term_type = types[i % 2]
+        year = i // 2 + 1
+        terms.append(
+            {
+                "term_type": term_type,
+                "label": f"Year {year} - {term_type.capitalize()}",
+                "position": i,
+            }
+        )
+    return terms

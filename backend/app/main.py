@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import agent, courses, progress, requirements
+from app.routers import agent, courses, plan, progress, requirements
 
 app = FastAPI(title="AI Course Compass API")
 
@@ -19,6 +19,7 @@ app.include_router(courses.router)
 app.include_router(requirements.router)
 app.include_router(progress.router)
 app.include_router(agent.router)
+app.include_router(plan.router)
 
 
 @app.get("/health")

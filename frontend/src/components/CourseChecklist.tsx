@@ -185,6 +185,13 @@ export default function CourseChecklist() {
     })
   }
 
+  const setTerm = (code: string, status: string, locked: boolean, termId: string | null) => {
+    withPending(code, async () => {
+      const nextStatus = termId && status === 'not_started' ? 'planned' : status
+      await api.upsertPlanCourse({ course_code: code, term_id: termId, status: nextStatus, locked })
+    })
+  }
+
   return (
     <div className="rounded-sm border border-line bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
@@ -266,10 +273,23 @@ export default function CourseChecklist() {
                           on calendar
                         </span>
                       )}
+                      <select
+                        value={termIdByCode[course.code] ?? ''}
+                        disabled={busy || course.locked}
+                        onChange={(e) =>
+                          setTerm(course.code, course.status, course.locked, e.target.value || null)
+                        }
+                        className="ml-auto rounded-sm border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-50"
+                      >
+                        <option value="">not scheduled</option>
+                        {(plan?.terms ?? []).map((t) => (
+                          <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                      </select>
                       <button
                         onClick={() => toggleLock(course.code, course.status, course.locked)}
                         disabled={busy}
-                        className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap disabled:opacity-50 ${
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap disabled:opacity-50 ${
                           course.locked
                             ? 'bg-maroon-soft text-maroon'
                             : 'border border-line-strong text-ink-soft hover:border-maroon hover:text-maroon'

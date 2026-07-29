@@ -342,12 +342,30 @@ join (values
 on conflict (category_id, course_code) do nothing;
 
 -- Math Foundation's 4th slot is a real either/or between these two — every
--- other course in every other category here is unconditionally required.
+-- other course in the Intro Sequence / Core CS / Math Foundation / Algorithms
+-- categories is unconditionally required.
 update public.requirement_courses rc
 set is_required = false
 from public.requirement_categories cat
 where rc.category_id = cat.id
   and cat.name = 'Mathematics Foundation'
   and rc.course_code in ('MATH 233', 'STATISTC 315');
+
+-- These five categories are "pick N of M" electives — no single course in
+-- them should be flagged as individually required, since it's just one
+-- option among several (CS Electives 300-399: pick 3 of 12; CS Electives
+-- 400+: pick 3 of 18; Additional Elective: pick 1 of 14; IE: pick 1 of 2;
+-- Lab Science: pick 2 of 12).
+update public.requirement_courses rc
+set is_required = false
+from public.requirement_categories cat
+where rc.category_id = cat.id
+  and cat.name in (
+    'CS Electives (300-399)',
+    'CS Electives (400+)',
+    'Additional Elective (300+ or approved outside)',
+    'Integrative Experience (IE) Requirement',
+    'Lab Science Requirement'
+  );
 
 commit;

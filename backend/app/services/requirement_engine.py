@@ -26,6 +26,7 @@ class PrereqEdge:
     course_code: str
     prereq_code: str
     group_id: int = 0
+    min_grade: str = "C"  # e.g. COMPSCI 514 needs "B+" in its prereqs, COMPSCI 575 needs "B"
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class RequirementCourseLink:
     category_id: str
     course_code: str
     satisfies_note: str = ""
+    is_required: bool = True  # False for courses that are one of several alternatives in a "mixed" category
 
 
 def _prereq_groups(course_code: str, edges: list[PrereqEdge]) -> list[list[str]]:
@@ -91,6 +93,91 @@ def eligible_next_courses(
         code
         for code in all_course_codes
         if code not in completed and prereqs_satisfied(code, completed, edges)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Grade-aware prerequisite checking
+#
+# course_prerequisites.min_grade has been seeded since day one (e.g. COMPSCI
+# 514 needs a B+ in COMPSCI 240/311, COMPSCI 575 needs a B) but the functions
+# above only ever checked whether a prereq was DONE, never the grade. These
+# variants take each course's actual status/grade and enforce min_grade too.
+# Term-scheduling (prereqs_satisfied_for_term) deliberately stays grade-blind
+# — you don't know your grade yet when you're just planning a future term —
+# so only the "is this actually, truly satisfied" call sites (the checklist
+# and Recommendation Mode) use these.
+# ---------------------------------------------------------------------------
+
+GRADE_POINTS = {
+    "A": 4.0, "A-": 3.7,
+    "B+": 3.3, "B": 3.0, "B-": 2.7,
+    "C+": 2.3, "C": 2.0, "C-": 1.7,
+    "D+": 1.3, "D": 1.0, "D-": 0.7,
+    "F": 0.0,
+}
+
+
+@dataclass(frozen=True)
+class CourseFulfillment:
+    status: str  # 'completed' | 'skipped' | 'credited'
+    grade: str | None = None  # letter grade actually earned; only meaningful when status == 'completed'
+
+
+def grade_meets_minimum(grade: str | None, min_grade: str) -> bool:
+    """
+    grade=None means no grade was recorded (e.g. an older row from before
+    grade-tracking existed) — treat that as meeting only the default 'C' bar,
+    so nothing regresses for courses nobody entered a grade for.
+    """
+    if grade is None:
+        return GRADE_POINTS.get(min_grade, 2.0) <= GRADE_POINTS["C"]
+    return GRADE_POINTS.get(grade, 0.0) >= GRADE_POINTS.get(min_grade, 2.0)
+
+
+def _prereq_groups_detailed(course_code: str, edges: list[PrereqEdge]) -> list[list[PrereqEdge]]:
+    groups: dict[int, list[PrereqEdge]] = defaultdict(list)
+    for edge in edges:
+        if edge.course_code == course_code:
+            groups[edge.group_id].append(edge)
+    return list(groups.values())
+
+
+def prereq_groups_with_grades_for(course_code: str, edges: list[PrereqEdge]) -> list[list[tuple[str, str]]]:
+    """Same AND/OR grouping as prereq_groups_for, but pairing each prereq code with its min_grade."""
+    return [[(e.prereq_code, e.min_grade) for e in group] for group in _prereq_groups_detailed(course_code, edges)]
+
+
+def prereq_ref_satisfied(prereq_code: str, min_grade: str, fulfillment: dict[str, CourseFulfillment]) -> bool:
+    """Has the user met this specific prereq at the required grade (or skipped/credited it)?"""
+    course = fulfillment.get(prereq_code)
+    if course is None:
+        return False
+    if course.status in EXEMPT_STATUSES:
+        return True  # skipped/credited — there's no course grade to check
+    return grade_meets_minimum(course.grade, min_grade)
+
+
+def prereqs_satisfied_with_grades(
+    course_code: str, fulfillment: dict[str, CourseFulfillment], edges: list[PrereqEdge]
+) -> bool:
+    groups = _prereq_groups_detailed(course_code, edges)
+    if not groups:
+        return True
+    return any(
+        all(prereq_ref_satisfied(edge.prereq_code, edge.min_grade, fulfillment) for edge in group)
+        for group in groups
+    )
+
+
+def eligible_next_courses_with_grades(
+    all_course_codes: list[str], fulfillment: dict[str, CourseFulfillment], edges: list[PrereqEdge]
+) -> list[str]:
+    """Recommendation Mode: courses not yet taken/exempted whose prereqs are truly met (grades included)."""
+    return [
+        code
+        for code in all_course_codes
+        if code not in fulfillment and prereqs_satisfied_with_grades(code, fulfillment, edges)
     ]
 
 

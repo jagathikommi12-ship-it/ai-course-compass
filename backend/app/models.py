@@ -11,17 +11,6 @@ class CourseOut(BaseModel):
     notes: str = ""
 
 
-class PrereqNode(BaseModel):
-    code: str
-    title: str
-    satisfied: bool
-    missing_options: list[list[str]]  # each inner list is one "AND" path still missing; multiple = OR
-    children: list["PrereqNode"] = []
-
-
-PrereqNode.model_rebuild()
-
-
 class CategoryStatusOut(BaseModel):
     category_id: str
     name: str
@@ -42,7 +31,24 @@ class ProgramStatusOut(BaseModel):
 
 class PrereqRefOut(BaseModel):
     code: str
-    satisfied: bool  # has the user already completed this specific prereq course
+    min_grade: str  # e.g. "C", "B+" — the minimum grade this specific prereq requires
+    satisfied: bool  # has the user met this prereq at the required grade (or skipped/credited it)
+
+
+class CoursePrereqsOut(BaseModel):
+    """
+    Powers the Prerequisite Explorer: the full set of prereq PATHWAYS for one
+    course (AND within a group, OR across groups), each course paired with
+    its required minimum grade and whether the user has actually met it —
+    not just a flat list of course codes, since which combination applies
+    differs by student (e.g. COMPSCI 589 via MATH 545+COMPSCI 240+STATISTC
+    315 at a C, OR via MATH 233+COMPSCI 240 at a B+).
+    """
+
+    code: str
+    title: str
+    prereqs_met: bool
+    prereq_groups: list[list[PrereqRefOut]] = []
 
 
 class ChecklistCourseOut(BaseModel):
@@ -51,7 +57,8 @@ class ChecklistCourseOut(BaseModel):
     credits: float
     satisfies_note: str = ""
     ambiguous_note: str = ""  # cross-listing/notes worth double-checking before assuming this counts
-    status: str  # 'not_started' | 'planned' | 'completed'
+    status: str  # 'not_started' | 'planned' | 'completed' | 'skipped' | 'credited'
+    grade: str | None = None  # letter grade the student actually earned, if any
     mandatory: bool  # required course vs. one option among an elective/choice category
     prereqs_met: bool
     prereq_groups: list[list[PrereqRefOut]] = []  # AND within a group, OR across groups
@@ -127,12 +134,14 @@ class PlannedCourseOut(BaseModel):
     credits: float
     term_id: str | None
     status: str
+    grade: str | None = None
 
 
 class PlanCourseIn(BaseModel):
     course_code: str
     term_id: str | None = None
     status: str = "planned"
+    grade: str | None = None
 
 
 class CreditsSummaryOut(BaseModel):
@@ -143,7 +152,7 @@ class CreditsSummaryOut(BaseModel):
 
 
 class PlanOut(BaseModel):
-    settings: PlanSettingsOut | None
+    settings: PlanSettingsOut
     terms: list[TermOut]
     planned_courses: list[PlannedCourseOut]
     credits_summary: CreditsSummaryOut

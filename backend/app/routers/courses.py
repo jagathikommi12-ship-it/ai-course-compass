@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import CurrentUser, get_current_user
-from app.models import CourseOut, PrereqNode
+from app.models import CoursePrereqsOut, CourseOut, PrereqRefOut
 from app.services import catalog_repo
-from app.services.requirement_engine import missing_prereq_options, prereqs_satisfied
+from app.services.requirement_engine import (
+    CourseFulfillment,
+    FULFILLING_STATUSES,
+    prereq_groups_with_grades_for,
+    prereq_ref_satisfied,
+    prereqs_satisfied_with_grades,
+)
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -24,46 +30,42 @@ def list_courses(_: CurrentUser = Depends(get_current_user)):
     ]
 
 
-@router.get("/{code}/prereq-tree", response_model=PrereqNode)
-def get_prereq_tree(
-    code: str,
-    max_depth: int = 6,
-    user: CurrentUser = Depends(get_current_user),
-):
+@router.get("/{code}/prereqs", response_model=CoursePrereqsOut)
+def get_course_prereqs(code: str, user: CurrentUser = Depends(get_current_user)):
     """
-    Recursive drill-down: click a course, see its prereqs; click one of
-    those, see its prereqs, and so on. `satisfied` is evaluated against the
-    requesting user's completed courses so the UI can grey out what's done.
+    Prerequisite Explorer: every PATHWAY that satisfies this course's
+    prerequisites (AND within a path, OR across paths), each course paired
+    with the minimum grade it requires and whether the requesting user has
+    actually met it — not just a flat list, since which path applies is a
+    per-student choice (e.g. COMPSCI 589 via MATH 545+COMPSCI 240+STATISTC
+    315 at a C, OR via MATH 233+COMPSCI 240 at a B+).
     """
     courses = {c.code: c for c in catalog_repo.fetch_courses()}
     if code not in courses:
         raise HTTPException(status_code=404, detail=f"Unknown course code '{code}'")
 
     edges = catalog_repo.fetch_prereq_edges()
-    completed = catalog_repo.fetch_completed_course_codes(user.user_id)
+    fulfillment = {
+        row["course_code"]: CourseFulfillment(status=row["status"], grade=row.get("grade"))
+        for row in catalog_repo.fetch_planned_courses(user.user_id)
+        if row["status"] in FULFILLING_STATUSES
+    }
 
-    def build(course_code: str, depth: int, visited: frozenset[str]) -> PrereqNode:
-        course = courses.get(course_code)
-        title = course.title if course else course_code
-        satisfied = prereqs_satisfied(course_code, completed, edges)
-        missing = missing_prereq_options(course_code, completed, edges)
+    prereq_groups_out = [
+        [
+            PrereqRefOut(
+                code=prereq_code,
+                min_grade=min_grade,
+                satisfied=prereq_ref_satisfied(prereq_code, min_grade, fulfillment),
+            )
+            for prereq_code, min_grade in group
+        ]
+        for group in prereq_groups_with_grades_for(code, edges)
+    ]
 
-        children: list[PrereqNode] = []
-        if depth < max_depth:
-            direct_prereqs = {p for group in missing for p in group} or {
-                p for edge in edges if edge.course_code == course_code for p in [edge.prereq_code]
-            }
-            for prereq_code in sorted(direct_prereqs):
-                if prereq_code in visited:
-                    continue  # guard against any accidental cycle in the data
-                children.append(build(prereq_code, depth + 1, visited | {course_code}))
-
-        return PrereqNode(
-            code=course_code,
-            title=title,
-            satisfied=satisfied,
-            missing_options=missing,
-            children=children,
-        )
-
-    return build(code, 0, frozenset())
+    return CoursePrereqsOut(
+        code=code,
+        title=courses[code].title,
+        prereqs_met=prereqs_satisfied_with_grades(code, fulfillment, edges),
+        prereq_groups=prereq_groups_out,
+    )

@@ -41,6 +41,7 @@ def fetch_prereq_edges() -> list[PrereqEdge]:
             course_code=row["course_code"],
             prereq_code=row["prereq_code"],
             group_id=row.get("group_id", 0),
+            min_grade=row.get("min_grade") or "C",
         )
         for row in rows
     ]
@@ -82,6 +83,7 @@ def fetch_requirement_links(category_ids: list[str] | None = None) -> list[Requi
             category_id=row["category_id"],
             course_code=row["course_code"],
             satisfies_note=row.get("satisfies_note", ""),
+            is_required=row.get("is_required", True),
         )
         for row in rows
     ]
@@ -217,6 +219,7 @@ def upsert_planned_course(
     course_code: str,
     term_id: str | None,
     status: str,
+    grade: str | None = None,
 ) -> dict:
     client = get_service_client()
     result = (
@@ -227,6 +230,7 @@ def upsert_planned_course(
                 "course_code": course_code,
                 "term_id": term_id,
                 "status": status,
+                "grade": grade,
             },
             on_conflict="user_id,course_code",
         )

@@ -14,6 +14,7 @@ from app.models import (
 from app.services import catalog_repo
 from app.services.requirement_engine import (
     EXEMPT_STATUSES,
+    GRADE_POINTS,
     PlannedCourse,
     compute_credits_summary,
     format_missing_prereq_message,
@@ -25,6 +26,7 @@ from app.services.requirement_engine import (
 router = APIRouter(prefix="/me/plan", tags=["plan"])
 
 VALID_STATUSES = {"planned", "completed", "skipped", "credited"}
+VALID_GRADES = set(GRADE_POINTS)
 
 # Every plan starts with 8 alternating Fall/Spring terms and no summer/winter
 # terms — not user-configurable anymore. From there, users add/remove terms
@@ -88,6 +90,7 @@ def get_plan(program_id: str | None = None, user: CurrentUser = Depends(get_curr
                 credits=courses_by_code[row["course_code"]].credits if row["course_code"] in courses_by_code else 0,
                 term_id=row.get("term_id"),
                 status=row["status"],
+                grade=row.get("grade"),
             )
             for row in raw_rows
         ],
@@ -138,6 +141,8 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
     """
     if body.status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'")
+    if body.grade is not None and body.grade not in VALID_GRADES:
+        raise HTTPException(status_code=400, detail=f"Invalid grade '{body.grade}'")
 
     courses_by_code = {c.code: c for c in catalog_repo.fetch_courses()}
     if body.course_code not in courses_by_code:
@@ -171,7 +176,7 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
                 },
             )
 
-    row = catalog_repo.upsert_planned_course(user.user_id, body.course_code, term_id, body.status)
+    row = catalog_repo.upsert_planned_course(user.user_id, body.course_code, term_id, body.status, body.grade)
     course = courses_by_code[body.course_code]
     return PlannedCourseOut(
         course_code=row["course_code"],
@@ -179,6 +184,7 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
         credits=course.credits,
         term_id=row.get("term_id"),
         status=row["status"],
+        grade=row.get("grade"),
     )
 
 

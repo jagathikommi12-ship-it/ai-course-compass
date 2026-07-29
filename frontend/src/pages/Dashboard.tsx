@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -17,28 +17,8 @@ interface DragCourseData {
 
 export default function Dashboard() {
   const { session, signOut } = useAuth()
-  const [completed, setCompleted] = useState<Set<string>>(new Set())
   const [refreshKey, setRefreshKey] = useState(0)
   const [activeDrag, setActiveDrag] = useState<DragCourseData | null>(null)
-
-  useEffect(() => {
-    api.getCompleted().then((codes) => setCompleted(new Set(codes)))
-  }, [])
-
-  const onToggleComplete = async (code: string) => {
-    const isDone = completed.has(code)
-    const next = new Set(completed)
-    if (isDone) next.delete(code)
-    else next.add(code)
-    setCompleted(next)
-    try {
-      if (isDone) await api.unmarkCompleted(code)
-      else await api.markCompleted(code)
-      setRefreshKey((k) => k + 1)
-    } catch {
-      setCompleted(completed) // revert on failure
-    }
-  }
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDrag((event.active.data.current as DragCourseData | undefined) ?? null)
@@ -110,7 +90,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className="flex flex-col gap-5">
               <PlanSetup onChanged={() => setRefreshKey((k) => k + 1)} />
-              <CourseTree completed={completed} onToggleComplete={onToggleComplete} />
+              <CourseTree />
               <RecommendationMode refreshKey={refreshKey} />
             </div>
             <div>

@@ -12,11 +12,13 @@ from app.models import (
 from app.services import catalog_repo
 from app.services.requirement_engine import (
     FULFILLING_STATUSES,
+    CourseFulfillment,
     category_status,
     find_double_counted_courses,
     flag_ambiguous_courses,
-    prereq_groups_for,
-    prereqs_satisfied,
+    prereq_groups_with_grades_for,
+    prereq_ref_satisfied,
+    prereqs_satisfied_with_grades,
 )
 
 router = APIRouter(prefix="/programs", tags=["requirements"])
@@ -106,7 +108,11 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
     # "Fulfilled" here includes completed, skipped (tested out of it), and
     # credited (AP/IB/transfer) — all three mean the requirement is handled
     # even though the course may never appear on the calendar.
-    completed_codes = {code for code, row in planned_by_code.items() if row["status"] in FULFILLING_STATUSES}
+    fulfillment = {
+        code: CourseFulfillment(status=row["status"], grade=row.get("grade"))
+        for code, row in planned_by_code.items()
+        if row["status"] in FULFILLING_STATUSES
+    }
 
     links_by_category: dict[str, list] = {}
     for link in links:
@@ -119,9 +125,6 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
     for cat in categories:
         cat_links = links_by_category.get(cat.id, [])
         valid_links = [link for link in cat_links if link.course_code in courses_by_code]
-        # If the category requires literally every listed course, each one is mandatory;
-        # otherwise it's a "pick some subset" category and every course in it is a choice.
-        mandatory = cat.min_courses is not None and cat.min_courses >= len(valid_links)
 
         courses_out = []
         completed_count = 0
@@ -134,10 +137,16 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
                 all_completed_seen.add(link.course_code)
             all_codes_seen.add(link.course_code)
 
-            groups = prereq_groups_for(link.course_code, edges)
             prereq_groups_out = [
-                [PrereqRefOut(code=prereq_code, satisfied=prereq_code in completed_codes) for prereq_code in group]
-                for group in groups
+                [
+                    PrereqRefOut(
+                        code=prereq_code,
+                        min_grade=min_grade,
+                        satisfied=prereq_ref_satisfied(prereq_code, min_grade, fulfillment),
+                    )
+                    for prereq_code, min_grade in group
+                ]
+                for group in prereq_groups_with_grades_for(link.course_code, edges)
             ]
 
             courses_out.append(
@@ -148,8 +157,9 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
                     satisfies_note=link.satisfies_note,
                     ambiguous_note=ambiguous_notes.get(course.code, ""),
                     status=status,
-                    mandatory=mandatory,
-                    prereqs_met=prereqs_satisfied(link.course_code, completed_codes, edges),
+                    grade=plan_row.get("grade") if plan_row else None,
+                    mandatory=link.is_required,
+                    prereqs_met=prereqs_satisfied_with_grades(link.course_code, fulfillment, edges),
                     prereq_groups=prereq_groups_out,
                 )
             )

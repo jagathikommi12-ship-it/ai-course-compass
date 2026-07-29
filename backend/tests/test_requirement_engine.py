@@ -1,5 +1,6 @@
 from app.services.requirement_engine import (
     Course,
+    CourseFulfillment,
     PlannedCourse,
     PrereqEdge,
     RequirementCategory,
@@ -7,15 +8,19 @@ from app.services.requirement_engine import (
     category_status,
     compute_credits_summary,
     eligible_next_courses,
+    eligible_next_courses_with_grades,
     find_double_counted_courses,
     flag_ambiguous_courses,
     format_missing_prereq_message,
     generate_regular_terms,
+    grade_meets_minimum,
     missing_prereq_options,
     missing_prereqs_for_term,
     prereq_groups_for,
+    prereq_groups_with_grades_for,
     prereqs_satisfied,
     prereqs_satisfied_for_term,
+    prereqs_satisfied_with_grades,
 )
 
 EDGES = [
@@ -62,6 +67,50 @@ def test_prereq_groups_for_returns_and_or_structure():
     assert ["CS 230", "CS 250"] in groups
     assert ["CS 220"] in groups
     assert prereq_groups_for("CS 121", EDGES) == []
+
+
+def test_grade_meets_minimum():
+    assert grade_meets_minimum("B+", "B") is True
+    assert grade_meets_minimum("B", "B+") is False
+    assert grade_meets_minimum("C", "C") is True
+    assert grade_meets_minimum("C-", "C") is False
+    # No grade on record defaults to meeting only the standard 'C' bar.
+    assert grade_meets_minimum(None, "C") is True
+    assert grade_meets_minimum(None, "B+") is False
+
+
+def test_prereq_groups_with_grades_for_pairs_code_with_min_grade():
+    edges = [
+        PrereqEdge("CS 514", "CS 240", 0, min_grade="B+"),
+        PrereqEdge("CS 514", "CS 311", 0, min_grade="B+"),
+    ]
+    groups = prereq_groups_with_grades_for("CS 514", edges)
+    assert groups == [[("CS 240", "B+"), ("CS 311", "B+")]]
+
+
+def test_prereqs_satisfied_with_grades_enforces_min_grade():
+    edges = [PrereqEdge("CS 514", "CS 311", 0, min_grade="B+")]
+
+    got_a_minus = {"CS 311": CourseFulfillment(status="completed", grade="A-")}
+    assert prereqs_satisfied_with_grades("CS 514", got_a_minus, edges) is True
+
+    got_b = {"CS 311": CourseFulfillment(status="completed", grade="B")}
+    assert prereqs_satisfied_with_grades("CS 514", got_b, edges) is False
+
+    # Skipped/credited courses have no grade to check — they fully satisfy.
+    skipped = {"CS 311": CourseFulfillment(status="skipped")}
+    assert prereqs_satisfied_with_grades("CS 514", skipped, edges) is True
+
+
+def test_eligible_next_courses_with_grades_respects_min_grade():
+    edges = [PrereqEdge("CS 514", "CS 311", 0, min_grade="B+")]
+    all_codes = ["CS 311", "CS 514"]
+
+    only_b = {"CS 311": CourseFulfillment(status="completed", grade="B")}
+    assert "CS 514" not in eligible_next_courses_with_grades(all_codes, only_b, edges)
+
+    got_b_plus = {"CS 311": CourseFulfillment(status="completed", grade="B+")}
+    assert "CS 514" in eligible_next_courses_with_grades(all_codes, got_b_plus, edges)
 
 
 def test_eligible_next_courses_recommendation_mode():

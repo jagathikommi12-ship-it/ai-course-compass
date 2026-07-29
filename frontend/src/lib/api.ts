@@ -48,13 +48,8 @@ export interface Course {
   notes: string
 }
 
-export interface PrereqNode {
-  code: string
-  title: string
-  satisfied: boolean
-  missing_options: string[][]
-  children: PrereqNode[]
-}
+export const GRADE_OPTIONS = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'] as const
+export type Grade = (typeof GRADE_OPTIONS)[number]
 
 export interface CategoryStatus {
   category_id: string
@@ -85,7 +80,15 @@ export type CourseStatus = 'not_started' | 'planned' | 'completed' | 'skipped' |
 
 export interface PrereqRef {
   code: string
+  min_grade: string
   satisfied: boolean
+}
+
+export interface CoursePrereqs {
+  code: string
+  title: string
+  prereqs_met: boolean
+  prereq_groups: PrereqRef[][]
 }
 
 export interface ChecklistCourse {
@@ -95,6 +98,7 @@ export interface ChecklistCourse {
   satisfies_note: string
   ambiguous_note: string
   status: CourseStatus
+  grade: string | null
   mandatory: boolean
   prereqs_met: boolean
   prereq_groups: PrereqRef[][]
@@ -136,6 +140,7 @@ export interface PlannedCourse {
   credits: number
   term_id: string | null
   status: 'planned' | 'completed' | 'skipped' | 'credited'
+  grade: string | null
 }
 
 export interface CreditsSummary {
@@ -159,7 +164,7 @@ export interface PrereqViolation {
 
 export const api = {
   listCourses: () => request<Course[]>('/courses'),
-  getPrereqTree: (code: string) => request<PrereqNode>(`/courses/${encodeURIComponent(code)}/prereq-tree`),
+  getCoursePrereqs: (code: string) => request<CoursePrereqs>(`/courses/${encodeURIComponent(code)}/prereqs`),
   listPrograms: () => request<DegreeProgram[]>('/programs'),
   getProgramStatus: (programId: string) => request<ProgramStatus>(`/programs/${programId}/status`),
   getProgramChecklist: (programId: string) => request<ProgramChecklist>(`/programs/${programId}/checklist`),
@@ -182,7 +187,7 @@ export const api = {
       body: JSON.stringify({ term_type, label, after_position }),
     }),
   removeTerm: (termId: string) => request<void>(`/me/plan/terms/${termId}`, { method: 'DELETE' }),
-  upsertPlanCourse: (body: { course_code: string; term_id?: string | null; status?: string }) =>
+  upsertPlanCourse: (body: { course_code: string; term_id?: string | null; status?: string; grade?: string | null }) =>
     request<PlannedCourse>('/me/plan/courses', { method: 'POST', body: JSON.stringify(body) }),
   removePlanCourse: (course_code: string) =>
     request<void>(`/me/plan/courses/${encodeURIComponent(course_code)}`, { method: 'DELETE' }),

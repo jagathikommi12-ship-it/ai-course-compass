@@ -341,4 +341,13 @@ join (values
   on dp.name = 'BS Computer Science' and rc.name = v.category_name
 on conflict (category_id, course_code) do nothing;
 
+-- Math Foundation's 4th slot is a real either/or between these two — every
+-- other course in every other category here is unconditionally required.
+update public.requirement_courses rc
+set is_required = false
+from public.requirement_categories cat
+where rc.category_id = cat.id
+  and cat.name = 'Mathematics Foundation'
+  and rc.course_code in ('MATH 233', 'STATISTC 315');
+
 commit;

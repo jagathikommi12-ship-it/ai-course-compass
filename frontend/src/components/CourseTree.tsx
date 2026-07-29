@@ -1,17 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, type Course, type PrereqNode } from '../lib/api'
+import { api, type Course, type CoursePrereqs, type PrereqRef } from '../lib/api'
 
-export default function CourseTree({
-  completed,
-  onToggleComplete,
-}: {
-  completed: Set<string>
-  onToggleComplete: (code: string) => void
-}) {
+function PathwayGroup({ group, index, totalGroups }: { group: PrereqRef[]; index: number; totalGroups: number }) {
+  return (
+    <div className="rounded-sm border border-line-strong p-3">
+      {totalGroups > 1 && (
+        <p className="mb-1.5 text-xs font-semibold text-ink-soft">Path {index + 1} (need all of):</p>
+      )}
+      <div className="flex flex-col gap-1">
+        {group.map((ref) => (
+          <div key={ref.code} className="flex items-center gap-2 text-sm">
+            <span className={ref.satisfied ? 'text-green-700 dark:text-green-400' : 'text-maroon'}>
+              {ref.satisfied ? '✓' : '✗'}
+            </span>
+            <span className="font-mono font-semibold text-ink">{ref.code}</span>
+            <span className="font-mono text-xs text-ink-faint">min grade {ref.min_grade}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function CourseTree() {
   const [allCourses, setAllCourses] = useState<Course[]>([])
   const [query, setQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [tree, setTree] = useState<PrereqNode | null>(null)
+  const [result, setResult] = useState<CoursePrereqs | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -32,11 +47,11 @@ export default function CourseTree({
     setError(null)
     setShowSuggestions(false)
     try {
-      setTree(await api.getPrereqTree(code.toUpperCase()))
+      setResult(await api.getCoursePrereqs(code.toUpperCase()))
       setQuery(code)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to look up course')
-      setTree(null)
+      setResult(null)
     } finally {
       setLoading(false)
     }
@@ -79,38 +94,26 @@ export default function CourseTree({
       {error && <p className="px-4 pt-3 text-sm text-maroon">{error}</p>}
       {loading && <p className="px-4 pt-3 text-sm text-ink-faint">Loading…</p>}
 
-      {tree && (
+      {result && (
         <div className="p-4">
           <div className="flex items-center gap-2 py-1">
-            <input
-              type="checkbox"
-              checked={completed.has(tree.code)}
-              onChange={() => onToggleComplete(tree.code)}
-              className="h-4 w-4 accent-maroon"
-            />
             <span className="text-ink">
-              <span className="font-mono font-semibold">{tree.code}</span> — {tree.title}
+              <span className="font-mono font-semibold">{result.code}</span> — {result.title}
             </span>
-            {tree.satisfied ? (
+            {result.prereqs_met ? (
               <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold">met</span>
             ) : (
               <span className="rounded-full bg-maroon-soft px-2 py-0.5 text-[11px] font-semibold text-maroon">not yet met</span>
             )}
           </div>
-          {tree.children.length === 0 ? (
-            <p className="pl-6 text-xs text-ink-faint">No prerequisites.</p>
+          {result.prereq_groups.length === 0 ? (
+            <p className="pl-1 text-xs text-ink-faint">No prerequisites.</p>
           ) : (
-            <div className="flex flex-col gap-1 pl-6">
-              {tree.children.map((child) => (
-                <div key={child.code} className="flex items-center gap-2 text-sm">
-                  <span
-                    className={`font-mono font-semibold ${
-                      child.satisfied ? 'text-green-700 dark:text-green-400' : 'text-maroon'
-                    }`}
-                  >
-                    {child.code}
-                  </span>
-                  <span className="text-ink-soft">{child.title}</span>
+            <div className="mt-2 flex flex-col gap-2">
+              {result.prereq_groups.map((group, i) => (
+                <div key={i} className="flex flex-col gap-2">
+                  {i > 0 && <p className="text-center text-xs font-semibold text-ink-faint">— or —</p>}
+                  <PathwayGroup group={group} index={i} totalGroups={result.prereq_groups.length} />
                 </div>
               ))}
             </div>

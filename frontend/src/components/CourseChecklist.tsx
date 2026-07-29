@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   api,
   ApiError,
+  GRADE_OPTIONS,
   type ChecklistCourse,
   type DegreeProgram,
   type Plan,
@@ -45,7 +46,7 @@ function PrereqList({ groups }: { groups: PrereqRef[][] }) {
             <span key={p.code}>
               {pi > 0 && <span> and </span>}
               <span className={p.satisfied ? 'font-semibold text-green-700 dark:text-green-400' : 'font-semibold text-maroon'}>
-                {p.code}
+                {p.code} ({p.min_grade})
               </span>
             </span>
           ))}
@@ -184,6 +185,13 @@ export default function CourseChecklist() {
     })
   }
 
+  const setGrade = (code: string, grade: string) => {
+    withPending(code, async () => {
+      const termId = termIdByCode[code] ?? null
+      await api.upsertPlanCourse({ course_code: code, term_id: termId, status: 'completed', grade: grade || null })
+    })
+  }
+
   // The dropdown covers 5 kinds of selection: not scheduled, skipped (tested
   // out of it, no credit), credit received (AP/IB/transfer), or a real term.
   const setPlacement = (code: string, status: string, value: string) => {
@@ -284,6 +292,19 @@ export default function CourseChecklist() {
                         <span className="font-mono font-semibold">{course.code}</span> — {course.title}
                       </span>
                       <span className="font-mono text-xs text-ink-faint">{course.credits} cr</span>
+                      {isCompleted && (
+                        <select
+                          value={course.grade ?? ''}
+                          disabled={busy}
+                          onChange={(e) => setGrade(course.code, e.target.value)}
+                          className="rounded-sm border border-line-strong bg-surface px-1.5 py-0.5 text-xs text-ink disabled:opacity-50"
+                        >
+                          <option value="">grade…</option>
+                          {GRADE_OPTIONS.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      )}
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${
                           course.mandatory ? 'bg-line text-ink-soft' : 'bg-gold-soft text-gold'

@@ -3,7 +3,11 @@ from fastapi import APIRouter, Depends
 from app.auth import CurrentUser, get_current_user
 from app.models import CompletedCourseIn, CourseOut, RecommendationOut
 from app.services import catalog_repo
-from app.services.requirement_engine import FULFILLING_STATUSES, eligible_next_courses
+from app.services.requirement_engine import (
+    FULFILLING_STATUSES,
+    CourseFulfillment,
+    eligible_next_courses_with_grades,
+)
 
 router = APIRouter(prefix="/me", tags=["progress"])
 
@@ -36,8 +40,8 @@ def get_recommendations(program_id: str | None = None, user: CurrentUser = Depen
     """
     courses_by_code = {c.code: c for c in catalog_repo.fetch_courses()}
     edges = catalog_repo.fetch_prereq_edges()
-    fulfilled = {
-        row["course_code"]
+    fulfillment = {
+        row["course_code"]: CourseFulfillment(status=row["status"], grade=row.get("grade"))
         for row in catalog_repo.fetch_planned_courses(user.user_id)
         if row["status"] in FULFILLING_STATUSES
     }
@@ -54,7 +58,7 @@ def get_recommendations(program_id: str | None = None, user: CurrentUser = Depen
     else:
         relevant_codes = sorted(courses_by_code)
 
-    eligible_codes = set(eligible_next_courses(relevant_codes, fulfilled, edges))
+    eligible_codes = set(eligible_next_courses_with_grades(relevant_codes, fulfillment, edges))
     eligible = [
         CourseOut(
             code=c.code,

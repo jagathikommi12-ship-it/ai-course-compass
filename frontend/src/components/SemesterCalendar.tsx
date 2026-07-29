@@ -86,12 +86,8 @@ export default function SemesterCalendar() {
     return <div className="rounded-sm border border-line bg-surface p-4 text-sm text-maroon">{error}</div>
   }
 
-  if (!plan || !plan.settings) {
-    return (
-      <div className="rounded-sm border border-line bg-surface p-4 text-sm text-ink-soft">
-        Set up your plan below to see your semester calendar.
-      </div>
-    )
+  if (!plan) {
+    return <div className="rounded-sm border border-line bg-surface p-4 text-sm text-ink-soft">Loading…</div>
   }
 
   const coursesByTerm: Record<string, PlannedCourse[]> = {}

@@ -121,7 +121,6 @@ export interface ProgramChecklist {
 
 export interface PlanSettings {
   incoming_credits: number
-  target_semesters: number
 }
 
 export interface Term {
@@ -147,7 +146,7 @@ export interface CreditsSummary {
 }
 
 export interface Plan {
-  settings: PlanSettings | null
+  settings: PlanSettings
   terms: Term[]
   planned_courses: PlannedCourse[]
   credits_summary: CreditsSummary
@@ -175,7 +174,7 @@ export const api = {
 
   getPlan: (programId?: string) => request<Plan>(`/me/plan${programId ? `?program_id=${programId}` : ''}`),
   updatePlanSettings: (settings: PlanSettings) =>
-    request<Term[]>('/me/plan/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+    request<PlanSettings>('/me/plan/settings', { method: 'PUT', body: JSON.stringify(settings) }),
   addTerm: (term_type: 'summer' | 'winter', label: string, after_position: number) =>
     request<Term>('/me/plan/terms', {
       method: 'POST',

@@ -106,7 +106,6 @@ class PlanSettingsOut(BaseModel):
 
 class PlanSettingsIn(BaseModel):
     incoming_credits: float = 0
-    target_semesters: int
 
 
 class TermOut(BaseModel):

@@ -125,12 +125,17 @@ def fetch_plan_settings(user_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
-def upsert_plan_settings(user_id: str, incoming_credits: float, target_semesters: int) -> dict:
+def upsert_plan_settings(user_id: str, incoming_credits: float) -> dict:
+    """
+    target_semesters isn't user-facing anymore (users manage terms directly
+    by adding/removing them), so it's deliberately left out of the payload —
+    new rows get the column's default, existing rows keep whatever they had.
+    """
     client = get_service_client()
     result = (
         client.table("user_plan_settings")
         .upsert(
-            {"user_id": user_id, "incoming_credits": incoming_credits, "target_semesters": target_semesters},
+            {"user_id": user_id, "incoming_credits": incoming_credits},
             on_conflict="user_id",
         )
         .execute()

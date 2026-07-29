@@ -102,6 +102,7 @@ export default function CourseChecklist() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [incomingCredits, setIncomingCredits] = useState(0)
 
   useEffect(() => {
     api.listPrograms().then((ps) => {
@@ -118,6 +119,7 @@ export default function CourseChecklist() {
       const map: Record<string, string | null> = {}
       for (const pc of pl.planned_courses) map[pc.course_code] = pc.term_id
       setTermIdByCode(map)
+      setIncomingCredits(pl.settings.incoming_credits)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load checklist')
@@ -127,6 +129,16 @@ export default function CourseChecklist() {
   useEffect(() => {
     if (selected) reload(selected)
   }, [selected])
+
+  const saveIncomingCredits = async () => {
+    if (plan && incomingCredits === plan.settings.incoming_credits) return
+    try {
+      await api.updatePlanSettings({ incoming_credits: incomingCredits })
+      await reload(selected)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to save incoming credits')
+    }
+  }
 
   const toggleExpanded = (categoryId: string) => {
     setExpanded((prev) => {
@@ -196,7 +208,22 @@ export default function CourseChecklist() {
   return (
     <div className="rounded-sm border border-line bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <h2 className="font-display text-[15px] font-bold text-ink">Course checklist</h2>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 className="font-display text-[15px] font-bold text-ink">Course checklist</h2>
+          <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+            Incoming credits (AP/IB)
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={incomingCredits}
+              onChange={(e) => setIncomingCredits(Number(e.target.value))}
+              onBlur={saveIncomingCredits}
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              className="w-16 rounded-sm border border-line-strong bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-maroon focus:outline-none"
+            />
+          </label>
+        </div>
         <div className="flex items-center gap-3">
           {checklist && (
             <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold whitespace-nowrap">

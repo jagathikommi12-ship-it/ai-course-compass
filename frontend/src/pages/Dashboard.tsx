@@ -13,7 +13,6 @@ interface DragCourseData {
   code: string
   termId: string | null
   status: string
-  locked: boolean
 }
 
 export default function Dashboard() {
@@ -50,10 +49,6 @@ export default function Dashboard() {
     const data = event.active.data.current as DragCourseData | undefined
     const overId = event.over ? String(event.over.id) : null
     if (!data || !overId) return
-    if (data.locked) {
-      alert('Unlock this course before moving it.')
-      return
-    }
 
     let targetTermId: string | null
     if (overId === 'unscheduled') targetTermId = null
@@ -68,7 +63,6 @@ export default function Dashboard() {
         course_code: data.code,
         term_id: targetTermId,
         status: nextStatus,
-        locked: false,
       })
       setRefreshKey((k) => k + 1)
     } catch (e) {
@@ -101,7 +95,7 @@ export default function Dashboard() {
 
         <div className="mx-auto max-w-6xl px-7 py-6">
           <div className="mb-5">
-            <SemesterCalendar key={`calendar-${refreshKey}`} onChanged={() => setRefreshKey((k) => k + 1)} />
+            <SemesterCalendar key={`calendar-${refreshKey}`} />
           </div>
 
           <div className="mb-5">

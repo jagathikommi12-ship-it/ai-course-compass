@@ -14,19 +14,19 @@ import {
 function CreditsTracker({ plan }: { plan: Plan | null }) {
   if (!plan) return null
   const cs = plan.credits_summary
-  const lockedPct = cs.total_required > 0 ? Math.min(100, (cs.locked_credits / cs.total_required) * 100) : 0
-  const scheduledPct = cs.total_required > 0 ? Math.min(100 - lockedPct, (cs.scheduled_credits / cs.total_required) * 100) : 0
+  const completedPct = cs.total_required > 0 ? Math.min(100, (cs.completed_credits / cs.total_required) * 100) : 0
+  const scheduledPct = cs.total_required > 0 ? Math.min(100 - completedPct, (cs.scheduled_credits / cs.total_required) * 100) : 0
 
   return (
     <div className="border-b border-line p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-[13px] font-semibold text-ink">Credits</h3>
         <span className="font-mono text-xs text-ink-soft">
-          {cs.locked_credits}&nbsp;locked · {cs.scheduled_credits}&nbsp;on calendar · {cs.remaining_credits}&nbsp;still needed of {cs.total_required}
+          {cs.completed_credits}&nbsp;completed · {cs.scheduled_credits}&nbsp;on calendar · {cs.remaining_credits}&nbsp;still needed of {cs.total_required}
         </span>
       </div>
       <div className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-line">
-        <div className="h-full bg-maroon" style={{ width: `${lockedPct}%` }} />
+        <div className="h-full bg-maroon" style={{ width: `${completedPct}%` }} />
         <div className="h-full bg-gold" style={{ width: `${scheduledPct}%` }} />
       </div>
     </div>
@@ -66,8 +66,7 @@ function DraggableCourseRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `chk:${course.code}`,
-    data: { code: course.code, termId, status: course.status, locked: course.locked },
-    disabled: course.locked,
+    data: { code: course.code, termId, status: course.status },
   })
   const style = transform
     ? { transform: CSS.Translate.toString(transform), zIndex: 20, position: 'relative' as const }
@@ -81,10 +80,10 @@ function DraggableCourseRow({
     >
       <div className="flex flex-wrap items-center gap-2.5">
         <span
-          {...(course.locked ? {} : listeners)}
+          {...listeners}
           {...attributes}
-          className={`select-none text-ink-faint ${course.locked ? 'opacity-30' : 'cursor-grab active:cursor-grabbing'}`}
-          title={course.locked ? 'Unlock to drag' : 'Drag onto the calendar'}
+          className="cursor-grab select-none text-ink-faint active:cursor-grabbing"
+          title="Drag onto the calendar"
         >
           ⠿
         </span>
@@ -158,37 +157,25 @@ export default function CourseChecklist() {
     }
   }
 
-  const toggleComplete = (code: string, currentlyCompleted: boolean, locked: boolean) => {
-    if (currentlyCompleted && locked) {
-      alert('Unlock this course before unchecking it.')
-      return
-    }
+  const toggleComplete = (code: string, currentlyCompleted: boolean) => {
     withPending(code, async () => {
       const termId = termIdByCode[code] ?? null
       if (currentlyCompleted) {
         if (termId) {
-          await api.upsertPlanCourse({ course_code: code, term_id: termId, status: 'planned', locked: false })
+          await api.upsertPlanCourse({ course_code: code, term_id: termId, status: 'planned' })
         } else {
           await api.removePlanCourse(code)
         }
       } else {
-        await api.upsertPlanCourse({ course_code: code, term_id: termId, status: 'completed', locked })
+        await api.upsertPlanCourse({ course_code: code, term_id: termId, status: 'completed' })
       }
     })
   }
 
-  const toggleLock = (code: string, status: string, locked: boolean) => {
-    withPending(code, async () => {
-      const termId = termIdByCode[code] ?? null
-      const nextStatus = status === 'not_started' ? 'planned' : status
-      await api.upsertPlanCourse({ course_code: code, term_id: termId, status: nextStatus, locked: !locked })
-    })
-  }
-
-  const setTerm = (code: string, status: string, locked: boolean, termId: string | null) => {
+  const setTerm = (code: string, status: string, termId: string | null) => {
     withPending(code, async () => {
       const nextStatus = termId && status === 'not_started' ? 'planned' : status
-      await api.upsertPlanCourse({ course_code: code, term_id: termId, status: nextStatus, locked })
+      await api.upsertPlanCourse({ course_code: code, term_id: termId, status: nextStatus })
     })
   }
 
@@ -245,7 +232,7 @@ export default function CourseChecklist() {
                         type="checkbox"
                         checked={isCompleted}
                         disabled={busy}
-                        onChange={() => toggleComplete(course.code, isCompleted, course.locked)}
+                        onChange={() => toggleComplete(course.code, isCompleted)}
                         className="h-4 w-4 accent-maroon disabled:opacity-50"
                       />
                       <span className={`text-sm ${isCompleted ? 'text-ink-faint line-through' : 'text-ink'}`}>
@@ -275,10 +262,8 @@ export default function CourseChecklist() {
                       )}
                       <select
                         value={termIdByCode[course.code] ?? ''}
-                        disabled={busy || course.locked}
-                        onChange={(e) =>
-                          setTerm(course.code, course.status, course.locked, e.target.value || null)
-                        }
+                        disabled={busy}
+                        onChange={(e) => setTerm(course.code, course.status, e.target.value || null)}
                         className="ml-auto rounded-sm border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-50"
                       >
                         <option value="">not scheduled</option>
@@ -286,17 +271,6 @@ export default function CourseChecklist() {
                           <option key={t.id} value={t.id}>{t.label}</option>
                         ))}
                       </select>
-                      <button
-                        onClick={() => toggleLock(course.code, course.status, course.locked)}
-                        disabled={busy}
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap disabled:opacity-50 ${
-                          course.locked
-                            ? 'bg-maroon-soft text-maroon'
-                            : 'border border-line-strong text-ink-soft hover:border-maroon hover:text-maroon'
-                        }`}
-                      >
-                        {course.locked ? 'locked' : 'lock'}
-                      </button>
                       <div className="basis-full">
                         <PrereqList groups={course.prereq_groups} />
                         {course.ambiguous_note && (

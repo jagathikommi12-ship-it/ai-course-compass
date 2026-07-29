@@ -95,7 +95,6 @@ export interface ChecklistCourse {
   satisfies_note: string
   ambiguous_note: string
   status: CourseStatus
-  locked: boolean
   mandatory: boolean
   prereqs_met: boolean
   prereq_groups: PrereqRef[][]
@@ -138,13 +137,12 @@ export interface PlannedCourse {
   credits: number
   term_id: string | null
   status: 'planned' | 'completed'
-  locked: boolean
 }
 
 export interface CreditsSummary {
   total_required: number
   scheduled_credits: number
-  locked_credits: number
+  completed_credits: number
   remaining_credits: number
 }
 
@@ -184,7 +182,7 @@ export const api = {
       body: JSON.stringify({ term_type, label, after_position }),
     }),
   removeTerm: (termId: string) => request<void>(`/me/plan/terms/${termId}`, { method: 'DELETE' }),
-  upsertPlanCourse: (body: { course_code: string; term_id?: string | null; status?: string; locked?: boolean }) =>
+  upsertPlanCourse: (body: { course_code: string; term_id?: string | null; status?: string }) =>
     request<PlannedCourse>('/me/plan/courses', { method: 'POST', body: JSON.stringify(body) }),
   removePlanCourse: (course_code: string) =>
     request<void>(`/me/plan/courses/${encodeURIComponent(course_code)}`, { method: 'DELETE' }),

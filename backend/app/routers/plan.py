@@ -34,7 +34,6 @@ def _planned_courses_with_positions(user_id: str) -> tuple[list[PlannedCourse], 
             course_code=row["course_code"],
             term_position=terms_by_id[row["term_id"]]["position"] if row.get("term_id") else None,
             status=row["status"],
-            locked=row["locked"],
         )
         for row in rows
     ]
@@ -66,14 +65,13 @@ def get_plan(program_id: str | None = None, user: CurrentUser = Depends(get_curr
                 credits=courses_by_code[row["course_code"]].credits if row["course_code"] in courses_by_code else 0,
                 term_id=row.get("term_id"),
                 status=row["status"],
-                locked=row["locked"],
             )
             for row in raw_rows
         ],
         credits_summary=CreditsSummaryOut(
             total_required=summary.total_required,
             scheduled_credits=summary.scheduled_credits,
-            locked_credits=summary.locked_credits,
+            completed_credits=summary.completed_credits,
             remaining_credits=summary.remaining_credits,
         ),
     )
@@ -137,7 +135,6 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
                 course_code=r["course_code"],
                 term_position=terms_by_id[r["term_id"]]["position"] if r.get("term_id") in terms_by_id else None,
                 status=r["status"],
-                locked=r["locked"],
             )
             for r in existing_rows
         ]
@@ -151,7 +148,7 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
                 },
             )
 
-    row = catalog_repo.upsert_planned_course(user.user_id, body.course_code, body.term_id, body.status, body.locked)
+    row = catalog_repo.upsert_planned_course(user.user_id, body.course_code, body.term_id, body.status)
     course = courses_by_code[body.course_code]
     return PlannedCourseOut(
         course_code=row["course_code"],
@@ -159,13 +156,9 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
         credits=course.credits,
         term_id=row.get("term_id"),
         status=row["status"],
-        locked=row["locked"],
     )
 
 
 @router.delete("/courses/{course_code}", status_code=204)
 def remove_course(course_code: str, user: CurrentUser = Depends(get_current_user)):
-    existing = catalog_repo.fetch_planned_course(user.user_id, course_code)
-    if existing and existing["locked"]:
-        raise HTTPException(status_code=400, detail="Unlock this course before removing it from your plan.")
     catalog_repo.delete_planned_course(user.user_id, course_code)

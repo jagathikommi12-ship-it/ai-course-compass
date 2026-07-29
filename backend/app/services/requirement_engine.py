@@ -174,15 +174,14 @@ class PlannedCourse:
     course_code: str
     term_position: int | None  # None = unscheduled (checked off or backlog); otherwise the term's sequence position
     status: str  # 'planned' | 'completed'
-    locked: bool  # done, or certain (currently enrolled) — can't be casually dragged/removed
 
 
 @dataclass(frozen=True)
 class CreditsSummary:
     total_required: float
     scheduled_credits: float  # sum of credits for every course placed in some term
-    locked_credits: float  # sum of credits for locked (done/certain) courses
-    remaining_credits: float  # max(0, total_required - locked_credits)
+    completed_credits: float  # sum of credits for checked-off (completed) courses
+    remaining_credits: float  # max(0, total_required - completed_credits)
 
 
 def compute_credits_summary(
@@ -195,16 +194,16 @@ def compute_credits_summary(
         for p in planned
         if p.term_position is not None and p.course_code in courses_by_code
     )
-    locked = sum(
+    completed = sum(
         courses_by_code[p.course_code].credits
         for p in planned
-        if p.locked and p.course_code in courses_by_code
+        if p.status == "completed" and p.course_code in courses_by_code
     )
-    remaining = max(0.0, total_required - locked)
+    remaining = max(0.0, total_required - completed)
     return CreditsSummary(
         total_required=total_required,
         scheduled_credits=scheduled,
-        locked_credits=locked,
+        completed_credits=completed,
         remaining_credits=remaining,
     )
 

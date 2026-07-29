@@ -3,11 +3,10 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { api, type Plan, type PlannedCourse } from '../lib/api'
 
-function CourseChip({ course, onToggleLock }: { course: PlannedCourse; onToggleLock: (course: PlannedCourse) => void }) {
+function CourseChip({ course }: { course: PlannedCourse }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `cal:${course.course_code}`,
-    data: { code: course.course_code, termId: course.term_id, status: course.status, locked: course.locked },
-    disabled: course.locked,
+    data: { code: course.course_code, termId: course.term_id, status: course.status },
   })
   const style = transform ? { transform: CSS.Translate.toString(transform), zIndex: 20 } : undefined
 
@@ -15,39 +14,20 @@ function CourseChip({ course, onToggleLock }: { course: PlannedCourse; onToggleL
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1.5 rounded-sm border px-2 py-1 text-xs ${
-        course.locked ? 'border-maroon-soft bg-maroon-soft text-maroon' : 'border-line-strong bg-surface text-ink'
-      } ${isDragging ? 'opacity-50' : ''} ${course.status === 'completed' ? 'line-through opacity-70' : ''}`}
+      className={`flex items-center gap-1.5 rounded-sm border border-line-strong bg-surface px-2 py-1 text-xs text-ink ${
+        isDragging ? 'opacity-50' : ''
+      } ${course.status === 'completed' ? 'line-through opacity-70' : ''}`}
     >
-      <span
-        {...(course.locked ? {} : listeners)}
-        {...attributes}
-        className={course.locked ? 'opacity-30' : 'cursor-grab select-none active:cursor-grabbing'}
-      >
+      <span {...listeners} {...attributes} className="cursor-grab select-none active:cursor-grabbing">
         ⠿
       </span>
       <span className="font-mono font-semibold">{course.course_code}</span>
       <span className="text-ink-faint">{course.credits}cr</span>
-      <button
-        onClick={() => onToggleLock(course)}
-        title={course.locked ? 'Unlock' : 'Lock this course in'}
-        className="ml-auto leading-none"
-      >
-        {course.locked ? '🔒' : '🔓'}
-      </button>
     </div>
   )
 }
 
-function TermColumn({
-  term,
-  courses,
-  onToggleLock,
-}: {
-  term: Plan['terms'][number]
-  courses: PlannedCourse[]
-  onToggleLock: (course: PlannedCourse) => void
-}) {
+function TermColumn({ term, courses }: { term: Plan['terms'][number]; courses: PlannedCourse[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: `term:${term.id}` })
   const isExtra = term.term_type === 'summer' || term.term_type === 'winter'
   const credits = courses.reduce((sum, c) => sum + c.credits, 0)
@@ -65,20 +45,14 @@ function TermColumn({
       </div>
       <div className="flex min-h-[64px] flex-col gap-1.5 p-2">
         {courses.map((c) => (
-          <CourseChip key={c.course_code} course={c} onToggleLock={onToggleLock} />
+          <CourseChip key={c.course_code} course={c} />
         ))}
       </div>
     </div>
   )
 }
 
-function UnscheduledBucket({
-  courses,
-  onToggleLock,
-}: {
-  courses: PlannedCourse[]
-  onToggleLock: (course: PlannedCourse) => void
-}) {
+function UnscheduledBucket({ courses }: { courses: PlannedCourse[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'unscheduled' })
   return (
     <div
@@ -93,37 +67,20 @@ function UnscheduledBucket({
       </div>
       <div className="flex min-h-[64px] flex-col gap-1.5 p-2">
         {courses.map((c) => (
-          <CourseChip key={c.course_code} course={c} onToggleLock={onToggleLock} />
+          <CourseChip key={c.course_code} course={c} />
         ))}
       </div>
     </div>
   )
 }
 
-export default function SemesterCalendar({ onChanged }: { onChanged?: () => void } = {}) {
+export default function SemesterCalendar() {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const reload = () => {
+  useEffect(() => {
     api.getPlan().then(setPlan).catch((e) => setError(e instanceof Error ? e.message : 'Failed to load plan'))
-  }
-
-  useEffect(reload, [])
-
-  const toggleLock = async (course: PlannedCourse) => {
-    try {
-      await api.upsertPlanCourse({
-        course_code: course.course_code,
-        term_id: course.term_id,
-        status: course.status,
-        locked: !course.locked,
-      })
-      reload()
-      onChanged?.()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Could not update lock')
-    }
-  }
+  }, [])
 
   if (error) {
     return <div className="rounded-sm border border-line bg-surface p-4 text-sm text-maroon">{error}</div>
@@ -154,9 +111,9 @@ export default function SemesterCalendar({ onChanged }: { onChanged?: () => void
       </div>
       <div className="flex gap-3 overflow-x-auto p-4">
         {plan.terms.map((term) => (
-          <TermColumn key={term.id} term={term} courses={coursesByTerm[term.id] ?? []} onToggleLock={toggleLock} />
+          <TermColumn key={term.id} term={term} courses={coursesByTerm[term.id] ?? []} />
         ))}
-        <UnscheduledBucket courses={unscheduled} onToggleLock={toggleLock} />
+        <UnscheduledBucket courses={unscheduled} />
       </div>
     </div>
   )

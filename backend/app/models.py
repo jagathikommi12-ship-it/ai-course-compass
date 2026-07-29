@@ -52,7 +52,6 @@ class ChecklistCourseOut(BaseModel):
     satisfies_note: str = ""
     ambiguous_note: str = ""  # cross-listing/notes worth double-checking before assuming this counts
     status: str  # 'not_started' | 'planned' | 'completed'
-    locked: bool
     mandatory: bool  # required course vs. one option among an elective/choice category
     prereqs_met: bool
     prereq_groups: list[list[PrereqRefOut]] = []  # AND within a group, OR across groups
@@ -129,20 +128,18 @@ class PlannedCourseOut(BaseModel):
     credits: float
     term_id: str | None
     status: str
-    locked: bool
 
 
 class PlanCourseIn(BaseModel):
     course_code: str
     term_id: str | None = None
     status: str = "planned"
-    locked: bool = False
 
 
 class CreditsSummaryOut(BaseModel):
     total_required: float
     scheduled_credits: float
-    locked_credits: float
+    completed_credits: float
     remaining_credits: float
 
 

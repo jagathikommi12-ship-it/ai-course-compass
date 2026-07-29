@@ -212,7 +212,6 @@ def upsert_planned_course(
     course_code: str,
     term_id: str | None,
     status: str,
-    locked: bool,
 ) -> dict:
     client = get_service_client()
     result = (
@@ -223,7 +222,6 @@ def upsert_planned_course(
                 "course_code": course_code,
                 "term_id": term_id,
                 "status": status,
-                "locked": locked,
             },
             on_conflict="user_id,course_code",
         )

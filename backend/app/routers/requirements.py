@@ -87,8 +87,8 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
     """
     Every course in every requirement category for this program (not just
     the ones already completed), for rendering the full checklist with
-    section separations. Each course's status/locked comes from the user's
-    plan (user_planned_courses) — 'not_started' if they have no row there.
+    section separations. Each course's status comes from the user's plan
+    (user_planned_courses) — 'not_started' if they have no row there.
     """
     programs = {p["id"]: p for p in catalog_repo.fetch_programs()}
     if program_id not in programs:
@@ -125,7 +125,6 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
             course = courses_by_code[link.course_code]
             plan_row = planned_by_code.get(link.course_code)
             status = plan_row["status"] if plan_row else "not_started"
-            locked = plan_row["locked"] if plan_row else False
             if status == "completed":
                 completed_count += 1
                 all_completed_seen.add(link.course_code)
@@ -145,7 +144,6 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
                     satisfies_note=link.satisfies_note,
                     ambiguous_note=ambiguous_notes.get(course.code, ""),
                     status=status,
-                    locked=locked,
                     mandatory=mandatory,
                     prereqs_met=prereqs_satisfied(link.course_code, completed_codes, edges),
                     prereq_groups=prereq_groups_out,

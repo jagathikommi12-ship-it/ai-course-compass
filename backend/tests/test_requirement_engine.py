@@ -137,20 +137,20 @@ def test_compute_credits_summary():
         "CS 311": Course("CS 311", "w", credits=3),
     }
     planned = [
-        PlannedCourse("CS 121", term_position=0, status="completed", locked=True),
-        PlannedCourse("CS 187", term_position=0, status="completed", locked=True),
-        PlannedCourse("CS 230", term_position=1, status="planned", locked=False),
-        PlannedCourse("CS 311", term_position=None, status="planned", locked=False),  # unscheduled backlog item
+        PlannedCourse("CS 121", term_position=0, status="completed"),
+        PlannedCourse("CS 187", term_position=0, status="completed"),
+        PlannedCourse("CS 230", term_position=1, status="planned"),
+        PlannedCourse("CS 311", term_position=None, status="planned"),  # unscheduled backlog item
     ]
     summary = compute_credits_summary(120, planned, courses_by_code)
     assert summary.scheduled_credits == 11  # everything with a term_position (121+187+230)
-    assert summary.locked_credits == 8  # only the two locked/completed courses
+    assert summary.completed_credits == 8  # only the two completed courses
     assert summary.remaining_credits == 112  # 120 - 8
 
 
 def test_compute_credits_summary_floors_remaining_at_zero():
     courses_by_code = {"CS 121": Course("CS 121", "x", credits=4)}
-    planned = [PlannedCourse("CS 121", term_position=0, status="completed", locked=True)]
+    planned = [PlannedCourse("CS 121", term_position=0, status="completed")]
     summary = compute_credits_summary(2, planned, courses_by_code)  # already exceeds a tiny requirement
     assert summary.remaining_credits == 0
 
@@ -158,13 +158,13 @@ def test_compute_credits_summary_floors_remaining_at_zero():
 def test_prereqs_satisfied_for_term_requires_strictly_earlier_term():
     edges = [PrereqEdge("CS 230", "CS 187", 0)]
     planned_same_term = [
-        PlannedCourse("CS 187", term_position=2, status="planned", locked=False),
+        PlannedCourse("CS 187", term_position=2, status="planned"),
     ]
     # CS 187 scheduled in the SAME term as CS 230 (position 2) doesn't satisfy it
     assert prereqs_satisfied_for_term("CS 230", 2, planned_same_term, edges) is False
 
     planned_earlier = [
-        PlannedCourse("CS 187", term_position=1, status="planned", locked=False),
+        PlannedCourse("CS 187", term_position=1, status="planned"),
     ]
     assert prereqs_satisfied_for_term("CS 230", 2, planned_earlier, edges) is True
 

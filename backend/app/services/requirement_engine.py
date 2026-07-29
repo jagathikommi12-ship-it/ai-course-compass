@@ -169,23 +169,39 @@ def flag_ambiguous_courses(courses: list[Course]) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
+#: Statuses that mean "this requirement is handled" for prereq-checking and
+#: the checklist's done-count, even though the course was never scheduled
+#: into a term: it was checked off, skipped (e.g. tested out of it), or
+#: satisfied via outside credit (AP/IB/transfer).
+FULFILLING_STATUSES = {"completed", "skipped", "credited"}
+
+#: Statuses whose credits count toward the credits-earned tracker. Skipped
+#: courses deliberately do NOT contribute credits — there's nothing to add.
+CREDIT_BEARING_STATUSES = {"completed", "credited"}
+
+#: Statuses that must never be scheduled into a term — they represent a
+#: course the student isn't taking the normal way at all.
+EXEMPT_STATUSES = {"skipped", "credited"}
+
+
 @dataclass(frozen=True)
 class PlannedCourse:
     course_code: str
-    term_position: int | None  # None = unscheduled (checked off or backlog); otherwise the term's sequence position
-    status: str  # 'planned' | 'completed'
+    term_position: int | None  # None = unscheduled (checked off, exempt, or backlog); otherwise the term's sequence position
+    status: str  # 'planned' | 'completed' | 'skipped' | 'credited'
 
 
 @dataclass(frozen=True)
 class CreditsSummary:
     total_required: float
     scheduled_credits: float  # sum of credits for every course placed in some term
-    completed_credits: float  # sum of credits for checked-off (completed) courses
+    completed_credits: float  # incoming (AP/IB/transfer) credits + credits for completed/credited courses
     remaining_credits: float  # max(0, total_required - completed_credits)
 
 
 def compute_credits_summary(
     total_required: float,
+    incoming_credits: float,
     planned: list[PlannedCourse],
     courses_by_code: dict[str, Course],
 ) -> CreditsSummary:
@@ -194,11 +210,12 @@ def compute_credits_summary(
         for p in planned
         if p.term_position is not None and p.course_code in courses_by_code
     )
-    completed = sum(
+    earned = sum(
         courses_by_code[p.course_code].credits
         for p in planned
-        if p.status == "completed" and p.course_code in courses_by_code
+        if p.status in CREDIT_BEARING_STATUSES and p.course_code in courses_by_code
     )
+    completed = incoming_credits + earned
     remaining = max(0.0, total_required - completed)
     return CreditsSummary(
         total_required=total_required,
@@ -208,12 +225,19 @@ def compute_credits_summary(
     )
 
 
-def _codes_in_earlier_terms(target_position: int, planned: list[PlannedCourse]) -> set[str]:
-    return {
-        p.course_code
-        for p in planned
-        if p.term_position is not None and p.term_position < target_position
+def _codes_satisfying_prereq(target_position: int, planned: list[PlannedCourse]) -> set[str]:
+    """
+    A prereq course counts as satisfied for scheduling something into
+    `target_position` if it's already fulfilled outright (completed,
+    skipped, or credited — regardless of whether it's on the calendar at
+    all), or if it's scheduled into a strictly earlier term (planning ahead
+    is enough; it doesn't need to already be marked done).
+    """
+    fulfilled = {p.course_code for p in planned if p.status in FULFILLING_STATUSES}
+    scheduled_earlier = {
+        p.course_code for p in planned if p.term_position is not None and p.term_position < target_position
     }
+    return fulfilled | scheduled_earlier
 
 
 def prereqs_satisfied_for_term(
@@ -222,13 +246,8 @@ def prereqs_satisfied_for_term(
     planned: list[PlannedCourse],
     edges: list[PrereqEdge],
 ) -> bool:
-    """
-    A course can be scheduled into a term if its prerequisites are all
-    scheduled into STRICTLY EARLIER terms in the same plan (being scheduled
-    for the future is enough for planning purposes — it doesn't need to
-    already be marked 'completed').
-    """
-    return prereqs_satisfied(course_code, _codes_in_earlier_terms(target_position, planned), edges)
+    """A course can be scheduled into a term once all its prerequisites are satisfied (see _codes_satisfying_prereq)."""
+    return prereqs_satisfied(course_code, _codes_satisfying_prereq(target_position, planned), edges)
 
 
 def missing_prereqs_for_term(
@@ -238,7 +257,7 @@ def missing_prereqs_for_term(
     edges: list[PrereqEdge],
 ) -> list[list[str]]:
     """Same shape as missing_prereq_options: empty if satisfied, else the still-missing AND-groups."""
-    return missing_prereq_options(course_code, _codes_in_earlier_terms(target_position, planned), edges)
+    return missing_prereq_options(course_code, _codes_satisfying_prereq(target_position, planned), edges)
 
 
 def format_missing_prereq_message(course_code: str, missing_options: list[list[str]]) -> str:

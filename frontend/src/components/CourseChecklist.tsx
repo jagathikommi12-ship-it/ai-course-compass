@@ -22,7 +22,7 @@ function CreditsTracker({ plan }: { plan: Plan | null }) {
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-[13px] font-semibold text-ink">Credits</h3>
         <span className="font-mono text-xs text-ink-soft">
-          {cs.completed_credits}&nbsp;completed · {cs.scheduled_credits}&nbsp;on calendar · {cs.remaining_credits}&nbsp;still needed of {cs.total_required}
+          {cs.completed_credits}&nbsp;earned · {cs.scheduled_credits}&nbsp;on calendar · {cs.remaining_credits}&nbsp;still needed of {cs.total_required}
         </span>
       </div>
       <div className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-line">
@@ -172,10 +172,24 @@ export default function CourseChecklist() {
     })
   }
 
-  const setTerm = (code: string, status: string, termId: string | null) => {
+  // The dropdown covers 5 kinds of selection: not scheduled, skipped (tested
+  // out of it, no credit), credit received (AP/IB/transfer), or a real term.
+  const setPlacement = (code: string, status: string, value: string) => {
     withPending(code, async () => {
-      const nextStatus = termId && status === 'not_started' ? 'planned' : status
-      await api.upsertPlanCourse({ course_code: code, term_id: termId, status: nextStatus })
+      if (value === 'skip') {
+        await api.upsertPlanCourse({ course_code: code, term_id: null, status: 'skipped' })
+      } else if (value === 'credit') {
+        await api.upsertPlanCourse({ course_code: code, term_id: null, status: 'credited' })
+      } else if (value === '') {
+        if (status === 'skipped' || status === 'credited') {
+          await api.removePlanCourse(code)
+        } else if (status !== 'not_started') {
+          await api.upsertPlanCourse({ course_code: code, term_id: null, status })
+        }
+      } else {
+        const nextStatus = status === 'not_started' || status === 'skipped' || status === 'credited' ? 'planned' : status
+        await api.upsertPlanCourse({ course_code: code, term_id: value, status: nextStatus })
+      }
     })
   }
 
@@ -226,6 +240,10 @@ export default function CourseChecklist() {
                   const isCompleted = course.status === 'completed'
                   const isPlanned = course.status === 'planned'
                   const busy = pending.has(course.code)
+                  const dropdownValue =
+                    course.status === 'skipped' ? 'skip'
+                    : course.status === 'credited' ? 'credit'
+                    : (termIdByCode[course.code] ?? '')
                   return (
                     <DraggableCourseRow key={course.code} course={course} termId={termIdByCode[course.code] ?? null}>
                       <input
@@ -260,13 +278,25 @@ export default function CourseChecklist() {
                           on calendar
                         </span>
                       )}
+                      {course.status === 'skipped' && (
+                        <span className="rounded-full bg-line px-2 py-0.5 text-[11px] font-semibold text-ink-soft whitespace-nowrap">
+                          skipped
+                        </span>
+                      )}
+                      {course.status === 'credited' && (
+                        <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold whitespace-nowrap">
+                          credit received
+                        </span>
+                      )}
                       <select
-                        value={termIdByCode[course.code] ?? ''}
+                        value={dropdownValue}
                         disabled={busy}
-                        onChange={(e) => setTerm(course.code, course.status, e.target.value || null)}
+                        onChange={(e) => setPlacement(course.code, course.status, e.target.value)}
                         className="ml-auto rounded-sm border border-line-strong bg-surface px-2 py-1 text-xs text-ink disabled:opacity-50"
                       >
                         <option value="">not scheduled</option>
+                        <option value="skip">Skipped (no credit)</option>
+                        <option value="credit">Credit received (AP/IB/transfer)</option>
                         {(plan?.terms ?? []).map((t) => (
                           <option key={t.id} value={t.id}>{t.label}</option>
                         ))}

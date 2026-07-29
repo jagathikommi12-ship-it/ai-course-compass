@@ -99,7 +99,8 @@ export default function SemesterCalendar() {
   for (const pc of plan.planned_courses) {
     if (pc.term_id) {
       ;(coursesByTerm[pc.term_id] ??= []).push(pc)
-    } else {
+    } else if (pc.status !== 'skipped' && pc.status !== 'credited') {
+      // Skipped/credited courses are never on the calendar at all — not even the backlog.
       unscheduled.push(pc)
     }
   }

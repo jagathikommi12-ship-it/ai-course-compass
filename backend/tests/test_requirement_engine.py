@@ -142,16 +142,32 @@ def test_compute_credits_summary():
         PlannedCourse("CS 230", term_position=1, status="planned"),
         PlannedCourse("CS 311", term_position=None, status="planned"),  # unscheduled backlog item
     ]
-    summary = compute_credits_summary(120, planned, courses_by_code)
+    summary = compute_credits_summary(120, 0, planned, courses_by_code)
     assert summary.scheduled_credits == 11  # everything with a term_position (121+187+230)
     assert summary.completed_credits == 8  # only the two completed courses
     assert summary.remaining_credits == 112  # 120 - 8
 
 
+def test_compute_credits_summary_includes_incoming_and_credited_courses():
+    courses_by_code = {
+        "MATH 131": Course("MATH 131", "x", credits=4),
+        "CS 121": Course("CS 121", "y", credits=4),
+        "MATH 100": Course("MATH 100", "z", credits=3),  # skipped, shouldn't count
+    }
+    planned = [
+        PlannedCourse("MATH 131", term_position=None, status="credited"),  # AP credit, never scheduled
+        PlannedCourse("CS 121", term_position=0, status="completed"),
+        PlannedCourse("MATH 100", term_position=None, status="skipped"),
+    ]
+    summary = compute_credits_summary(120, 8, planned, courses_by_code)  # 8 incoming AP credits
+    assert summary.completed_credits == 16  # 8 incoming + 4 (MATH 131 credited) + 4 (CS 121 completed)
+    assert summary.remaining_credits == 104
+
+
 def test_compute_credits_summary_floors_remaining_at_zero():
     courses_by_code = {"CS 121": Course("CS 121", "x", credits=4)}
     planned = [PlannedCourse("CS 121", term_position=0, status="completed")]
-    summary = compute_credits_summary(2, planned, courses_by_code)  # already exceeds a tiny requirement
+    summary = compute_credits_summary(2, 0, planned, courses_by_code)  # already exceeds a tiny requirement
     assert summary.remaining_credits == 0
 
 
@@ -167,6 +183,21 @@ def test_prereqs_satisfied_for_term_requires_strictly_earlier_term():
         PlannedCourse("CS 187", term_position=1, status="planned"),
     ]
     assert prereqs_satisfied_for_term("CS 230", 2, planned_earlier, edges) is True
+
+
+def test_prereqs_satisfied_for_term_via_skipped_or_credited_prereq():
+    # Real case: student tested out of / got transfer credit for MATH 131 and
+    # never put it on the calendar at all, but still needs to schedule MATH 132.
+    edges = [PrereqEdge("MATH 132", "MATH 131", 0)]
+
+    skipped = [PlannedCourse("MATH 131", term_position=None, status="skipped")]
+    assert prereqs_satisfied_for_term("MATH 132", 0, skipped, edges) is True
+
+    credited = [PlannedCourse("MATH 131", term_position=None, status="credited")]
+    assert prereqs_satisfied_for_term("MATH 132", 0, credited, edges) is True
+
+    missing = missing_prereqs_for_term("MATH 132", 0, skipped, edges)
+    assert missing == []
 
 
 def test_missing_prereqs_for_term_names_the_missing_course():

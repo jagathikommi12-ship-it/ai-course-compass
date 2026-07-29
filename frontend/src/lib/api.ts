@@ -81,7 +81,7 @@ export interface DegreeProgram {
   description: string
 }
 
-export type CourseStatus = 'not_started' | 'planned' | 'completed'
+export type CourseStatus = 'not_started' | 'planned' | 'completed' | 'skipped' | 'credited'
 
 export interface PrereqRef {
   code: string
@@ -136,7 +136,7 @@ export interface PlannedCourse {
   title: string
   credits: number
   term_id: string | null
-  status: 'planned' | 'completed'
+  status: 'planned' | 'completed' | 'skipped' | 'credited'
 }
 
 export interface CreditsSummary {

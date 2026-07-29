@@ -11,6 +11,7 @@ from app.models import (
 )
 from app.services import catalog_repo
 from app.services.requirement_engine import (
+    FULFILLING_STATUSES,
     category_status,
     find_double_counted_courses,
     flag_ambiguous_courses,
@@ -102,7 +103,10 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
     ambiguous_notes = flag_ambiguous_courses(list(courses_by_code.values()))
 
     planned_by_code = {row["course_code"]: row for row in catalog_repo.fetch_planned_courses(user.user_id)}
-    completed_codes = {code for code, row in planned_by_code.items() if row["status"] == "completed"}
+    # "Fulfilled" here includes completed, skipped (tested out of it), and
+    # credited (AP/IB/transfer) — all three mean the requirement is handled
+    # even though the course may never appear on the calendar.
+    completed_codes = {code for code, row in planned_by_code.items() if row["status"] in FULFILLING_STATUSES}
 
     links_by_category: dict[str, list] = {}
     for link in links:
@@ -125,7 +129,7 @@ def get_program_checklist(program_id: str, user: CurrentUser = Depends(get_curre
             course = courses_by_code[link.course_code]
             plan_row = planned_by_code.get(link.course_code)
             status = plan_row["status"] if plan_row else "not_started"
-            if status == "completed":
+            if status in FULFILLING_STATUSES:
                 completed_count += 1
                 all_completed_seen.add(link.course_code)
             all_codes_seen.add(link.course_code)

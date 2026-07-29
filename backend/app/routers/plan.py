@@ -13,6 +13,7 @@ from app.models import (
 )
 from app.services import catalog_repo
 from app.services.requirement_engine import (
+    EXEMPT_STATUSES,
     PlannedCourse,
     compute_credits_summary,
     format_missing_prereq_message,
@@ -22,6 +23,8 @@ from app.services.requirement_engine import (
 )
 
 router = APIRouter(prefix="/me/plan", tags=["plan"])
+
+VALID_STATUSES = {"planned", "completed", "skipped", "credited"}
 
 
 def _planned_courses_with_positions(user_id: str) -> tuple[list[PlannedCourse], dict[str, dict], list[dict]]:
@@ -52,8 +55,9 @@ def get_plan(program_id: str | None = None, user: CurrentUser = Depends(get_curr
     if programs:
         program = next((p for p in programs if p["id"] == program_id), programs[0]) if program_id else programs[0]
     total_required = program["total_credits_required"] if program else 120
+    incoming_credits = settings_row["incoming_credits"] if settings_row else 0
 
-    summary = compute_credits_summary(total_required, planned, courses_by_code)
+    summary = compute_credits_summary(total_required, incoming_credits, planned, courses_by_code)
 
     return PlanOut(
         settings=PlanSettingsOut(**settings_row) if settings_row else None,
@@ -114,17 +118,28 @@ def remove_term(term_id: str, user: CurrentUser = Depends(get_current_user)):
 def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_user)):
     """
     Schedules (or updates) a course in the user's plan. If term_id is set,
-    the course's prerequisites must already be scheduled in a STRICTLY
-    earlier term (any status) — otherwise this returns 400 with a message
-    naming exactly what's missing, for the frontend to show as a popup.
+    the course's prerequisites must already be satisfied — scheduled in a
+    STRICTLY earlier term, or already completed/skipped/credited regardless
+    of term — otherwise this returns 400 with a message naming exactly
+    what's missing, for the frontend to show as a popup.
+
+    'skipped' (tested out of it, no credit) and 'credited' (AP/IB/transfer
+    credit) are never scheduled onto the calendar — term_id is forced to
+    null for those regardless of what's passed in, since there's nothing to
+    place on a term.
     """
+    if body.status not in VALID_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'")
+
     courses_by_code = {c.code: c for c in catalog_repo.fetch_courses()}
     if body.course_code not in courses_by_code:
         raise HTTPException(status_code=404, detail=f"Unknown course code '{body.course_code}'")
 
-    if body.term_id is not None:
+    term_id = None if body.status in EXEMPT_STATUSES else body.term_id
+
+    if term_id is not None:
         terms_by_id = {t["id"]: t for t in catalog_repo.fetch_terms(user.user_id)}
-        target_term = terms_by_id.get(body.term_id)
+        target_term = terms_by_id.get(term_id)
         if target_term is None:
             raise HTTPException(status_code=404, detail="Unknown term_id")
 
@@ -148,7 +163,7 @@ def upsert_course(body: PlanCourseIn, user: CurrentUser = Depends(get_current_us
                 },
             )
 
-    row = catalog_repo.upsert_planned_course(user.user_id, body.course_code, body.term_id, body.status)
+    row = catalog_repo.upsert_planned_course(user.user_id, body.course_code, term_id, body.status)
     course = courses_by_code[body.course_code]
     return PlannedCourseOut(
         course_code=row["course_code"],

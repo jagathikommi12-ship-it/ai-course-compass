@@ -58,7 +58,12 @@ export default function Dashboard() {
     if (targetTermId === data.termId) return
 
     try {
-      const nextStatus = data.status === 'not_started' ? 'planned' : data.status
+      // Dragging a skipped/credited course onto a real term means "actually
+      // schedule it after all" — promote it back to a normal planned course.
+      const nextStatus =
+        data.status === 'not_started' || data.status === 'skipped' || data.status === 'credited'
+          ? 'planned'
+          : data.status
       await api.upsertPlanCourse({
         course_code: data.code,
         term_id: targetTermId,

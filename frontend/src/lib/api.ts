@@ -168,7 +168,8 @@ export const api = {
     request<void>('/me/completed', { method: 'POST', body: JSON.stringify({ course_code }) }),
   unmarkCompleted: (course_code: string) =>
     request<void>(`/me/completed/${encodeURIComponent(course_code)}`, { method: 'DELETE' }),
-  getRecommendations: () => request<{ eligible_courses: Course[] }>('/me/recommendations'),
+  getRecommendations: (programId?: string) =>
+    request<{ eligible_courses: Course[] }>(`/me/recommendations${programId ? `?program_id=${programId}` : ''}`),
   chat: (message: string) =>
     request<{ reply: string }>('/agent/chat', { method: 'POST', body: JSON.stringify({ message }) }),
 

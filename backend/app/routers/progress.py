@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app.auth import CurrentUser, get_current_user
 from app.models import CompletedCourseIn, CourseOut, RecommendationOut
 from app.services import catalog_repo
-from app.services.requirement_engine import eligible_next_courses
+from app.services.requirement_engine import FULFILLING_STATUSES, eligible_next_courses
 
 router = APIRouter(prefix="/me", tags=["progress"])
 
@@ -27,13 +27,34 @@ def unmark_completed(course_code: str, user: CurrentUser = Depends(get_current_u
 
 
 @router.get("/recommendations", response_model=RecommendationOut)
-def get_recommendations(user: CurrentUser = Depends(get_current_user)):
-    """Recommendation Mode: every course the user is now eligible to take."""
-    courses = catalog_repo.fetch_courses()
+def get_recommendations(program_id: str | None = None, user: CurrentUser = Depends(get_current_user)):
+    """
+    Recommendation Mode: which courses toward this program the user is now
+    eligible to take, based on what they've checked off (completed, skipped,
+    or credited) in the plan checklist — never the legacy completed-courses
+    table, and never courses outside the chosen program's requirements.
+    """
+    courses_by_code = {c.code: c for c in catalog_repo.fetch_courses()}
     edges = catalog_repo.fetch_prereq_edges()
-    completed = catalog_repo.fetch_completed_course_codes(user.user_id)
+    fulfilled = {
+        row["course_code"]
+        for row in catalog_repo.fetch_planned_courses(user.user_id)
+        if row["status"] in FULFILLING_STATUSES
+    }
 
-    eligible_codes = set(eligible_next_courses([c.code for c in courses], completed, edges))
+    programs = catalog_repo.fetch_programs()
+    program = None
+    if programs:
+        program = next((p for p in programs if p["id"] == program_id), programs[0]) if program_id else programs[0]
+
+    if program:
+        categories = catalog_repo.fetch_categories(program_id=program["id"])
+        links = catalog_repo.fetch_requirement_links(category_ids=[c.id for c in categories])
+        relevant_codes = sorted({link.course_code for link in links if link.course_code in courses_by_code})
+    else:
+        relevant_codes = sorted(courses_by_code)
+
+    eligible_codes = set(eligible_next_courses(relevant_codes, fulfilled, edges))
     eligible = [
         CourseOut(
             code=c.code,
@@ -44,7 +65,7 @@ def get_recommendations(user: CurrentUser = Depends(get_current_user)):
             cross_listed_as=list(c.cross_listed_as),
             notes=c.notes,
         )
-        for c in courses
-        if c.code in eligible_codes
+        for code, c in courses_by_code.items()
+        if code in eligible_codes
     ]
     return RecommendationOut(eligible_courses=eligible)

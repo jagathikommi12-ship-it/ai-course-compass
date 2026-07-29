@@ -75,7 +75,7 @@ insert into public.courses (code, title, description, credits, department, cross
   ('MATH 131', 'Calculus I', 'Single-variable differential calculus.', 4, 'MATH', '{}', '{Fall,Spring}', ''),
   ('MATH 132', 'Calculus II', 'Single-variable integral calculus and series.', 4, 'MATH', '{}', '{Fall,Spring}', ''),
   ('MATH 233', 'Multivariate Calculus', 'Calculus in several variables.', 4, 'MATH', '{}', '{Fall,Spring}', 'Alternative to STATISTC 315 for the 4th math-foundation slot.'),
-  ('MATH 235', 'Introduction to Linear Algebra', 'Vector spaces, matrices, eigenvalues.', 4, 'MATH', '{}', '{Fall,Spring}', ''),
+  ('MATH 235', 'Introduction to Linear Algebra', 'Vector spaces, matrices, eigenvalues.', 3, 'MATH', '{}', '{Fall,Spring}', ''),
   ('STATISTC 315', 'Statistics I', 'Introductory statistics.', 4, 'STATISTC', '{}', '{Fall,Spring}', 'Does NOT replace MATH 132 in the math foundation requirement, even though it (or MATH 233) can fill the 4th math-foundation slot.'),
   -- Approved "outside elective" list (titles/credits per the requirements doc; not in the CICS catalog excerpt)
   ('ECE 353', 'Computer Systems Lab I', 'Approved outside elective for the CS Major.', 4, 'ECE', '{}', '{}', 'Not detailed in the CICS catalog excerpt (credit count approximate) — verify prereqs directly with the ECE department.'),
